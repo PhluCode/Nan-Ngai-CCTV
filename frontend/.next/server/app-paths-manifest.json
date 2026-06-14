@@ -1,4 +1,11 @@
 {
+  "/(protected)/(Incident)/Pending_Verification/page": "app/(protected)/(Incident)/Pending_Verification/page.js",
+  "/(protected)/(Incident)/incident_verification/[id]/page": "app/(protected)/(Incident)/incident_verification/[id]/page.js",
+  "/(protected)/page": "app/(protected)/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
   "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
-  "/auth/page": "app/auth/page.js"
+  "/api/cctvs/route": "app/api/cctvs/route.js",
+  "/api/incidents/[id]/route": "app/api/incidents/[id]/route.js",
+  "/api/incidents/route": "app/api/incidents/route.js",
+  "/favicon.ico/route": "app/favicon.ico/route.js"
 }
