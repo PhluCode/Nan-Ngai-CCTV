@@ -3,6 +3,7 @@ import {
 	IncidentSeverity,
 	IncidentType,
 	VerificationStatus,
+	Prisma,
 } from '@prisma/client';
 
 export async function createIncidentFromDetection(data: {
@@ -13,8 +14,9 @@ export async function createIncidentFromDetection(data: {
 	location?: string;
 	latitude?: number;
 	longitude?: number;
+	detectionMetadata?: Prisma.InputJsonValue;
 }) {
-	return await prisma.incident.create({
+	const incident = await prisma.incident.create({
 		data: {
 			cctvId: data.cctvId,
 			confidenceScore: data.confidenceScore,
@@ -24,11 +26,23 @@ export async function createIncidentFromDetection(data: {
 			latitude: data.latitude,
 			longitude: data.longitude,
 			verificationStatus: VerificationStatus.PENDING,
+			detectionMetadata: data.detectionMetadata,
 		},
 		include: {
 			cctv: true,
 		},
 	});
+
+	// Automatically create PENDING history log
+	await prisma.incidentHistory.create({
+		data: {
+			incidentId: incident.id,
+			status: 'PENDING',
+			notes: `Incident detected by AI model with ${Math.round(data.confidenceScore * 100)}% confidence`,
+		},
+	});
+
+	return incident;
 }
 
 export async function getIncidents(filter?: {
@@ -102,7 +116,7 @@ export async function verifyIncident(
 		responseNeeded: boolean;
 	}
 ) {
-	return await prisma.incident.update({
+	const updatedIncident = await prisma.incident.update({
 		where: { id },
 		data: {
 			verificationStatus: data.verificationStatus,
@@ -125,15 +139,52 @@ export async function verifyIncident(
 			},
 		},
 	});
+
+	// Create verification history log
+	await prisma.incidentHistory.create({
+		data: {
+			incidentId: id,
+			status: data.verificationStatus,
+			changedBy: data.verifiedBy,
+			notes: data.notes || `Incident verified by user. Response needed: ${data.responseNeeded}`,
+		},
+	});
+
+	// If response is needed, log the alert dispatch
+	if (data.responseNeeded) {
+		await prisma.notificationLog.create({
+			data: {
+				incidentId: id,
+				channel: 'CRS_API',
+				recipient: 'http://crs-agency.gov/api/v1/alerts',
+				status: 'SUCCESS',
+				sentAt: new Date(),
+			},
+		});
+	}
+
+	return updatedIncident;
 }
 
 export async function initiateResponse(id: string, userId: string) {
-	return await prisma.incident.update({
+	const updatedIncident = await prisma.incident.update({
 		where: { id },
 		data: {
 			responseInitiated: true,
 		},
 	});
+
+	// Create dispatch history log
+	await prisma.incidentHistory.create({
+		data: {
+			incidentId: id,
+			status: 'DISPATCHED',
+			changedBy: userId,
+			notes: 'Emergency response team dispatched.',
+		},
+	});
+
+	return updatedIncident;
 }
 
 export async function resolveIncident(
@@ -141,7 +192,7 @@ export async function resolveIncident(
 	userId: string,
 	notes?: string
 ) {
-	return await prisma.incident.update({
+	const updatedIncident = await prisma.incident.update({
 		where: { id },
 		data: {
 			resolvedAt: new Date(),
@@ -151,4 +202,16 @@ export async function resolveIncident(
 				: undefined,
 		},
 	});
+
+	// Create resolution history log
+	await prisma.incidentHistory.create({
+		data: {
+			incidentId: id,
+			status: 'RESOLVED',
+			changedBy: userId,
+			notes: notes || 'Incident marked as resolved.',
+		},
+	});
+
+	return updatedIncident;
 }

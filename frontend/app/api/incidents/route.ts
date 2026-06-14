@@ -80,6 +80,7 @@ export async function POST(req: Request) {
 			location: body.location,
 			latitude: body.latitude,
 			longitude: body.longitude,
+			detectionMetadata: body.detectionMetadata || body.metadata,
 		});
 
 		return NextResponse.json(newIncident, { status: 201 });
