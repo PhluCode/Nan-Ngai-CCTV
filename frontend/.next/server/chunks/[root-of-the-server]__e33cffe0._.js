@@ -95,10 +95,12 @@ __turbopack_context__.s([
     ()=>signOut
 ]);
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2d$auth$2f$index$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/node_modules/next-auth/index.js [app-route] (ecmascript) <locals>");
-var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2d$auth$2f$providers$2f$google$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/node_modules/next-auth/providers/google.js [app-route] (ecmascript) <locals>");
-var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2d$auth$2f$node_modules$2f40$auth$2f$core$2f$providers$2f$google$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/next-auth/node_modules/@auth/core/providers/google.js [app-route] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2d$auth$2f$providers$2f$credentials$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/node_modules/next-auth/providers/credentials.js [app-route] (ecmascript) <locals>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2d$auth$2f$node_modules$2f40$auth$2f$core$2f$providers$2f$credentials$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/next-auth/node_modules/@auth/core/providers/credentials.js [app-route] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$auth$2f$prisma$2d$adapter$2f$index$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/@auth/prisma-adapter/index.js [app-route] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$prisma$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/prisma.ts [app-route] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$bcryptjs$2f$index$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/bcryptjs/index.js [app-route] (ecmascript)");
+;
 ;
 ;
 ;
@@ -106,33 +108,68 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$prisma$2e$ts__$5b$app$2d$rou
 const { handlers, signIn, signOut, auth } = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2d$auth$2f$index$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__$3c$locals$3e$__["default"])({
     secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
     adapter: (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$auth$2f$prisma$2d$adapter$2f$index$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["PrismaAdapter"])(__TURBOPACK__imported__module__$5b$project$5d2f$prisma$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"]),
+    session: {
+        strategy: 'jwt'
+    },
     providers: [
-        (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2d$auth$2f$node_modules$2f40$auth$2f$core$2f$providers$2f$google$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"])({
-            clientId: process.env.GOOGLE_CLIENT_ID,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET
+        (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2d$auth$2f$node_modules$2f40$auth$2f$core$2f$providers$2f$credentials$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"])({
+            name: 'Credentials',
+            credentials: {
+                email: {
+                    label: 'Email',
+                    type: 'email'
+                },
+                password: {
+                    label: 'Password',
+                    type: 'password'
+                }
+            },
+            async authorize (credentials) {
+                if (!credentials?.email || !credentials?.password) {
+                    throw new Error('Please enter an email and password');
+                }
+                const user = await __TURBOPACK__imported__module__$5b$project$5d2f$prisma$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].user.findUnique({
+                    where: {
+                        email: credentials.email
+                    }
+                });
+                if (!user || !user.password) {
+                    throw new Error('No user found with this email');
+                }
+                const passwordMatch = await __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$bcryptjs$2f$index$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].compare(credentials.password, user.password);
+                if (!passwordMatch) {
+                    throw new Error('Incorrect password');
+                }
+                return {
+                    id: user.id,
+                    email: user.email,
+                    name: user.name,
+                    role: user.role
+                };
+            }
         })
     ],
     callbacks: {
-        async session ({ session, token, user }) {
+        async session ({ session, token }) {
             // Attach user details to the session
             if (session.user) {
-                session.user.id = user.id;
-                session.user.name = user.name;
-                session.user.email = user.email;
-                session.user.image = user.image;
+                session.user.id = token.id;
+                session.user.role = token.role;
             }
             return session;
         },
         async jwt ({ token, user }) {
-            // Attach user details to the JWT token
+            // user is only available the first time right after sign in
             if (user) {
                 token.id = user.id;
-                token.name = user.name;
-                token.email = user.email;
-                token.picture = user.image;
+                // @ts-ignore
+                token.role = user.role;
             }
             return token;
         }
+    },
+    pages: {
+        signIn: '/login'
     }
 });
 }),
@@ -285,6 +322,8 @@ async function resolveIncident(id, userId, notes) {
 "use strict";
 
 __turbopack_context__.s([
+    "DELETE",
+    ()=>DELETE,
     "GET",
     ()=>GET,
     "PATCH",
@@ -379,6 +418,36 @@ async function PATCH(req, { params }) {
         console.error('Error updating incident:', error);
         return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
             error: 'Failed to update incident'
+        }, {
+            status: 500
+        });
+    }
+}
+async function DELETE(req, { params }) {
+    try {
+        const session = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$auth$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["auth"])();
+        if (!session || session.user?.role !== 'ADMIN') {
+            return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                error: 'Unauthorized. Admin access required.'
+            }, {
+                status: 403
+            });
+        }
+        const { id } = await params;
+        const { PrismaClient } = await __turbopack_context__.A("[externals]/@prisma/client [external] (@prisma/client, cjs, async loader)");
+        const prisma = new PrismaClient();
+        await prisma.incident.delete({
+            where: {
+                id
+            }
+        });
+        return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+            success: true
+        });
+    } catch (error) {
+        console.error('Error deleting incident:', error);
+        return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+            error: 'Failed to delete incident'
         }, {
             status: 500
         });

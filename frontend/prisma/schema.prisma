@@ -6,12 +6,19 @@ datasource db {
 generator client {
   provider = "prisma-client-js"
 }
+
+enum Role {
+  USER
+  ADMIN
+}
  
 model User {
   id                String     @id @default(cuid())
   name              String?
   email             String     @unique
   emailVerified     DateTime?
+  password          String?
+  role              Role       @default(USER)
   image             String?
   accounts          Account[]
   sessions          Session[]
@@ -61,6 +68,9 @@ model CCTV {
   status            String
   accidentVideoUrl  String?
   hasAccidentVideo  Boolean    @default(false)
+  sector            String?    @default("Sector 7")
+  roadSegment       String?
+  landmark          String?
   createdAt         DateTime   @default(now())
   incidents         Incident[]
 
@@ -128,6 +138,8 @@ model Incident {
   notes             String?
   responseNeeded    Boolean            @default(false)
   responseInitiated Boolean            @default(false)
+  dispatchedAt      DateTime?
+  videoClipUrl      String?
   resolvedAt        DateTime?
   resolvedBy        String?
   resolvedByUser    User?              @relation("ResolvedIncidents", fields: [resolvedBy], references: [id])

@@ -14,6 +14,9 @@ export async function PATCH(
 			latitude,
 			longitude,
 			status,
+			sector,
+			roadSegment,
+			landmark,
 			accidentVideo,
 			removeExistingVideo;
 
@@ -24,6 +27,9 @@ export async function PATCH(
 			latitude = parseFloat(formData.get('latitude') as string);
 			longitude = parseFloat(formData.get('longitude') as string);
 			status = formData.get('status') as string;
+			sector = formData.get('sector') as string | null;
+			roadSegment = formData.get('roadSegment') as string | null;
+			landmark = formData.get('landmark') as string | null;
 			accidentVideo = formData.get('accidentVideo') as File | null;
 			removeExistingVideo = formData.get('removeExistingVideo') === 'true';
 		} else if (contentType.includes('application/json')) {
@@ -33,6 +39,9 @@ export async function PATCH(
 			latitude = jsonData.latitude;
 			longitude = jsonData.longitude;
 			status = jsonData.status;
+			sector = jsonData.sector;
+			roadSegment = jsonData.roadSegment;
+			landmark = jsonData.landmark;
 		} else {
 			return NextResponse.json(
 				{ error: 'Unsupported content type' },
@@ -68,7 +77,7 @@ export async function PATCH(
 			return NextResponse.json({ error: 'CCTV not found' }, { status: 404 });
 		}
 
-		const updateData: any = { name, rtspUrl, latitude, longitude, status };
+		const updateData: any = { name, rtspUrl, latitude, longitude, status, sector, roadSegment, landmark };
 
 		if (removeExistingVideo) {
 			updateData.accidentVideoUrl = null;
