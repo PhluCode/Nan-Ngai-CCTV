@@ -9,7 +9,7 @@ const ProtectedLayout = async ({
 }>) => {
 const session = await auth();
   if (!session?.user) {
-    return redirect("/auth")
+    return redirect("/login")
   }
   return (
     <>{children}</>

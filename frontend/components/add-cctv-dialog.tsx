@@ -33,6 +33,9 @@ type AddCCTVDialogProps = {
 		latitude: number;
 		longitude: number;
 		status: string;
+		sector?: string;
+		roadSegment?: string;
+		landmark?: string;
 		accidentVideo?: File | null;
 	}) => void;
 };
@@ -45,6 +48,9 @@ export function AddCCTVDialog({
 	const [name, setName] = React.useState('');
 	const [rtspUrl, setRtspUrl] = React.useState('');
 	const [status, setStatus] = React.useState('active');
+	const [sector, setSector] = React.useState('');
+	const [roadSegment, setRoadSegment] = React.useState('');
+	const [landmark, setLandmark] = React.useState('');
 	const [location, setLocation] = React.useState<{
 		latitude: number;
 		longitude: number;
@@ -115,6 +121,9 @@ export function AddCCTVDialog({
 			latitude: location.latitude,
 			longitude: location.longitude,
 			status,
+			sector,
+			roadSegment,
+			landmark,
 			accidentVideo,
 		});
 		onClose();
@@ -170,6 +179,45 @@ export function AddCCTVDialog({
 									Example:
 									rtsp://admin:password@192.168.1.100:554/h264/ch1/main/av_stream
 								</p>
+							</div>
+
+							{/* Sector & Road Segment */}
+							<div className="grid grid-cols-2 gap-4">
+								<div>
+									<label className='mb-2 block text-sm font-medium text-gray-300'>
+										Sector
+									</label>
+									<Input
+										placeholder='e.g. North'
+										value={sector}
+										onChange={e => setSector(e.target.value)}
+										className='border-gray-700 bg-gray-800 text-white placeholder-gray-500 focus:border-blue-500'
+									/>
+								</div>
+								<div>
+									<label className='mb-2 block text-sm font-medium text-gray-300'>
+										Road Segment
+									</label>
+									<Input
+										placeholder='e.g. I-95 North'
+										value={roadSegment}
+										onChange={e => setRoadSegment(e.target.value)}
+										className='border-gray-700 bg-gray-800 text-white placeholder-gray-500 focus:border-blue-500'
+									/>
+								</div>
+							</div>
+
+							{/* Landmark */}
+							<div>
+								<label className='mb-2 block text-sm font-medium text-gray-300'>
+									Landmark / Point of Interest
+								</label>
+								<Input
+									placeholder='e.g. Exit 12'
+									value={landmark}
+									onChange={e => setLandmark(e.target.value)}
+									className='border-gray-700 bg-gray-800 text-white placeholder-gray-500 focus:border-blue-500'
+								/>
 							</div>
 
 							{/* Accident Video Upload */}

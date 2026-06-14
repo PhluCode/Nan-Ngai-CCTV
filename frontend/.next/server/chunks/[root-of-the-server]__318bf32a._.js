@@ -110,6 +110,9 @@ async function POST(request) {
         const latitude = parseFloat(formData.get('latitude'));
         const longitude = parseFloat(formData.get('longitude'));
         const status = formData.get('status');
+        const sector = formData.get('sector');
+        const roadSegment = formData.get('roadSegment');
+        const landmark = formData.get('landmark');
         const accidentVideo = formData.get('accidentVideo');
         let accidentVideoUrl = null;
         let hasAccidentVideo = false;
@@ -137,6 +140,9 @@ async function POST(request) {
                 latitude,
                 longitude,
                 status,
+                sector,
+                roadSegment,
+                landmark,
                 accidentVideoUrl,
                 hasAccidentVideo
             }
@@ -162,10 +168,20 @@ async function GET() {
         const cctvs = await prisma.cCTV.findMany({
             orderBy: {
                 createdAt: 'desc'
+            },
+            include: {
+                incidents: {
+                    where: {
+                        verificationStatus: 'PENDING'
+                    },
+                    take: 1
+                }
             }
         });
         const formattedCctvs = cctvs.map((cctv)=>({
                 ...cctv,
+                hasActiveAlert: cctv.incidents.length > 0,
+                activeIncidentId: cctv.incidents.length > 0 ? cctv.incidents[0].id : null,
                 createdAt: cctv.createdAt.toISOString()
             }));
         return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json(formattedCctvs);
