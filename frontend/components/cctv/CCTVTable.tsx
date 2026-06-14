@@ -101,6 +101,9 @@ export function CCTVTable() {
 		latitude: number;
 		longitude: number;
 		status: string;
+		sector?: string;
+		roadSegment?: string;
+		landmark?: string;
 		accidentVideo?: File | null;
 	}) => {
 		try {
@@ -110,6 +113,9 @@ export function CCTVTable() {
 			formData.append('latitude', newCCTV.latitude.toString());
 			formData.append('longitude', newCCTV.longitude.toString());
 			formData.append('status', newCCTV.status);
+			if (newCCTV.sector) formData.append('sector', newCCTV.sector);
+			if (newCCTV.roadSegment) formData.append('roadSegment', newCCTV.roadSegment);
+			if (newCCTV.landmark) formData.append('landmark', newCCTV.landmark);
 
 			if (newCCTV.accidentVideo) {
 				formData.append('accidentVideo', newCCTV.accidentVideo);

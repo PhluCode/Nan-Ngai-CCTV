@@ -98,3 +98,32 @@ export async function PATCH(
 		);
 	}
 }
+
+export async function DELETE(
+	req: Request,
+	{ params }: { params: Promise<{ id: string }> }
+) {
+	try {
+		const session = await auth();
+		if (!session || session.user?.role !== 'ADMIN') {
+			return NextResponse.json({ error: 'Unauthorized. Admin access required.' }, { status: 403 });
+		}
+
+		const { id } = await params;
+		
+		const { PrismaClient } = await import('@prisma/client');
+		const prisma = new PrismaClient();
+		
+		await prisma.incident.delete({
+			where: { id }
+		});
+
+		return NextResponse.json({ success: true });
+	} catch (error) {
+		console.error('Error deleting incident:', error);
+		return NextResponse.json(
+			{ error: 'Failed to delete incident' },
+			{ status: 500 }
+		);
+	}
+}
