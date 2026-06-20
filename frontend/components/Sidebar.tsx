@@ -21,7 +21,7 @@ export function Sidebar() {
     <aside className="w-64 h-full pt-20 pb-8 bg-[#131B2E] border-r border-[#3E4850] flex flex-col justify-between shrink-0 z-20 relative">
       <div className="px-6 pb-10 flex flex-col">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-sky-500 rounded-sm flex justify-center items-center">
+          <div className="w-10 h-10 bg-sky-500 rounded-md flex justify-center items-center">
             <ShieldAlert className="w-6 h-6 text-[#003751]" />
           </div>
           <div className="flex flex-col">
@@ -54,22 +54,20 @@ export function Sidebar() {
       <nav className="px-4 flex flex-col gap-2 mt-4">
         {isAdmin && (
           <>
-            <Link 
-            href="/cctv_setting" 
-              className={`px-4 py-3 rounded flex items-center gap-3 cursor-pointer transition-colors ${
-                pathname === '/cctv_setting' ? 'bg-[#A40217] hover:bg-red-800' : 'hover:bg-slate-800'
-              }`}
+            <Link
+              href="/cctv_setting"
+              className={`px-4 py-3 rounded flex items-center gap-3 cursor-pointer transition-colors ${pathname === '/cctv_setting' ? 'bg-[#A40217] hover:bg-red-800' : 'hover:bg-slate-800'
+                }`}
             >
               <Video className={`w-5 h-5 ${pathname === '/cctv_setting' ? 'text-[#FFAEA8]' : 'text-[#BEC8D2]'}`} />
               <span className={`text-sm ${pathname === '/cctv_setting' ? 'text-[#FFAEA8] font-bold' : 'text-[#BEC8D2]'}`}>
                 CCTV Manager
               </span>
             </Link>
-            <Link 
-              href="/users" 
-              className={`px-4 py-3 rounded flex items-center gap-3 cursor-pointer transition-colors ${
-                pathname === '/users' ? 'bg-[#A40217] hover:bg-red-800' : 'hover:bg-slate-800'
-              }`}
+            <Link
+              href="/users"
+              className={`px-4 py-3 rounded flex items-center gap-3 cursor-pointer transition-colors ${pathname === '/users' ? 'bg-[#A40217] hover:bg-red-800' : 'hover:bg-slate-800'
+                }`}
             >
               <Users className={`w-5 h-5 ${pathname === '/users' ? 'text-[#FFAEA8]' : 'text-[#BEC8D2]'}`} />
               <span className={`text-sm ${pathname === '/users' ? 'text-[#FFAEA8] font-bold' : 'text-[#BEC8D2]'}`}>

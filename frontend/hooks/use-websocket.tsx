@@ -60,7 +60,7 @@ export function useWebSocket(
 	);
 
 	const error = useCallback((message: string, ...args: any[]) => {
-		console.error(`[WebSocket] ${message}`, ...args);
+		console.warn(`[WebSocket] ${message}`, ...args);
 	}, []);
 
 	const connect = useCallback(() => {
