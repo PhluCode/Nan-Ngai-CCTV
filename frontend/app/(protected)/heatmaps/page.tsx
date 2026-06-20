@@ -1,220 +1,226 @@
-import React from 'react';
+'use client';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { TopHeader } from '@/components/TopHeader';
 import { Sidebar } from '@/components/Sidebar';
+import dynamic from 'next/dynamic';
+
+const MapComponent = dynamic(() => import('@/components/MapComponent'), { ssr: false });
+
+interface Incident {
+  id: string;
+  verificationStatus: string;
+  incidentType: string;
+  confidenceScore: number;
+  detectedAt: string;
+  cctv?: {
+    id: string;
+    name: string;
+    sector: string;
+    landmark: string;
+    latitude: number;
+    longitude: number;
+  };
+}
 
 export default function HeatmapsPage() {
-  return (
-    <div className="w-full h-screen overflow-hidden relative bg-[#0B1326] flex text-white font-sans">
+  const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  // Filters
+  const [dateRange, setDateRange] = useState<'Today' | '7 Days' | '30 Days' | 'All Time'>('30 Days');
+  const [timePeriod, setTimePeriod] = useState<'All' | 'Daytime' | 'Nighttime'>('All');
+
+  useEffect(() => {
+    fetchIncidents();
+  }, []);
+
+  const fetchIncidents = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/incidents?status=CONFIRMED');
+      if (res.ok) {
+        const data = await res.json();
+        setIncidents(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch incidents:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filter Data
+  const filteredIncidents = useMemo(() => {
+    const now = new Date();
+    return incidents.filter(inc => {
+      const incDate = new Date(inc.detectedAt);
       
-      {/* Sidebar */}
+      // Date Range Filter
+      let dateMatch = true;
+      if (dateRange === 'Today') {
+        dateMatch = incDate.toDateString() === now.toDateString();
+      } else if (dateRange === '7 Days') {
+        const diffTime = Math.abs(now.getTime() - incDate.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        dateMatch = diffDays <= 7;
+      } else if (dateRange === '30 Days') {
+        const diffTime = Math.abs(now.getTime() - incDate.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        dateMatch = diffDays <= 30;
+      }
+
+      // Time Period Filter
+      let timeMatch = true;
+      const hour = incDate.getHours();
+      if (timePeriod === 'Daytime') {
+        timeMatch = hour >= 6 && hour < 18;
+      } else if (timePeriod === 'Nighttime') {
+        timeMatch = hour >= 18 || hour < 6;
+      }
+
+      return dateMatch && timeMatch;
+    });
+  }, [incidents, dateRange, timePeriod]);
+
+  // Aggregations
+  // 1. Hotspots by CCTV
+  const hotspots = useMemo(() => {
+    const counts: Record<string, { name: string, sector: string, count: number, latitude: number, longitude: number }> = {};
+    filteredIncidents.forEach(inc => {
+      if (!inc.cctv) return;
+      if (!counts[inc.cctv.id]) {
+        counts[inc.cctv.id] = { name: inc.cctv.name, sector: inc.cctv.sector || 'Unknown Sector', count: 0, latitude: inc.cctv.latitude, longitude: inc.cctv.longitude };
+      }
+      counts[inc.cctv.id].count += 1;
+    });
+    return Object.values(counts).sort((a, b) => b.count - a.count).slice(0, 5);
+  }, [filteredIncidents]);
+
+  // 2. Hourly Distribution
+  const hourlyData = useMemo(() => {
+    const hours = new Array(24).fill(0);
+    filteredIncidents.forEach(inc => {
+      const h = new Date(inc.detectedAt).getHours();
+      hours[h] += 1;
+    });
+    const max = Math.max(...hours, 1); // prevent division by zero
+    return hours.map(count => ({ count, heightPercentage: (count / max) * 100 }));
+  }, [filteredIncidents]);
+
+  return (
+    <div className="w-full h-screen overflow-hidden relative bg-[#0b1326] flex text-[#dae2fd] font-sans">
       <Sidebar />
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col relative h-full pt-16">
-        
+      <main className="flex-1 flex flex-col relative h-full pt-16 bg-[#0b1326]">
         <TopHeader />
 
-        {/* Filters Bar */}
-        <div className="w-full h-16 mt-16 bg-[#0B1326]/80 backdrop-blur-md border-b border-[#3E4850] px-8 flex items-center gap-4 shrink-0">
-          
+        {/* Filter Bar */}
+        <div className="h-14 border-b border-[#3e4850] flex items-center px-6 gap-6 bg-[#060e20]/50 backdrop-blur-md shrink-0">
           <div className="flex items-center gap-2">
-            <div className="w-4.5 h-5 bg-[#88929B]"></div>
-            <div className="px-4 py-2 bg-[#222A3D] rounded border border-[#3E4850] flex items-center gap-8 cursor-pointer hover:bg-slate-700">
-               <span className="text-[#DAE2FD] text-sm">Last 30 Days</span>
-               <div className="w-3 h-1.5 bg-[#6B7280]"></div>
-            </div>
+            <span className="text-xs tracking-wider text-[#bec8d2] uppercase font-semibold">Date Range</span>
+            <select 
+              value={dateRange}
+              onChange={e => setDateRange(e.target.value as any)}
+              className="bg-[#2d3449] text-[#dae2fd] text-xs rounded border border-[#88929b] px-2 py-1 outline-none"
+            >
+              <option>Today</option>
+              <option>7 Days</option>
+              <option>30 Days</option>
+              <option>All Time</option>
+            </select>
           </div>
-
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-5 bg-[#88929B]"></div>
-            <div className="px-4 py-2 bg-[#222A3D] rounded border border-[#3E4850] flex items-center gap-8 cursor-pointer hover:bg-slate-700">
-               <span className="text-[#DAE2FD] text-sm">All Districts</span>
-               <div className="w-3 h-1.5 bg-[#6B7280]"></div>
-            </div>
+          <div className="flex items-center gap-2 border-l border-[#3e4850] pl-6">
+            <span className="text-xs tracking-wider text-[#bec8d2] uppercase font-semibold">Time Period</span>
+            <select 
+              value={timePeriod}
+              onChange={e => setTimePeriod(e.target.value as any)}
+              className="bg-[#2d3449] text-[#dae2fd] text-xs rounded border border-[#88929b] px-2 py-1 outline-none"
+            >
+              <option>All</option>
+              <option>Daytime</option>
+              <option>Nighttime</option>
+            </select>
           </div>
-
-          <div className="flex items-center gap-2">
-            <div className="w-5.5 h-5 bg-[#88929B]"></div>
-            <div className="px-4 py-2 bg-[#222A3D] rounded border border-[#3E4850] flex items-center gap-8 cursor-pointer hover:bg-slate-700">
-               <span className="text-[#DAE2FD] text-sm">All Severities</span>
-               <div className="w-3 h-1.5 bg-[#6B7280]"></div>
+          <div className="ml-auto flex items-center gap-3">
+            <div className="flex items-center gap-2 px-3 py-1 bg-[#222a3d] rounded border border-[#3e4850]">
+              <span className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]"></span>
+              <span className="text-[10px] tracking-wider uppercase font-semibold">High Risk Zone</span>
             </div>
-          </div>
-
-          <div className="flex-1 flex justify-end items-center gap-6">
-            <div className="flex items-center gap-2 cursor-pointer hover:text-white group">
-               <div className="w-4.5 h-3 bg-[#BEC8D2] group-hover:bg-white transition-colors"></div>
-               <span className="text-[#BEC8D2] text-base group-hover:text-white transition-colors">Advanced Filters</span>
-            </div>
-            <button className="px-4 py-2 bg-[#0EA5E9] rounded flex items-center gap-2 hover:bg-sky-400 transition-colors">
-               <div className="w-4 h-4 bg-[#003751]"></div>
-               <span className="text-[#003751] text-base font-bold">Export Data</span>
+            <button className="text-[#bec8d2] hover:text-white transition-colors">
+               <span className="material-symbols-outlined">download</span>
             </button>
           </div>
-
         </div>
 
-        {/* Content Wrapper */}
-        <div className="w-full max-w-[1920px] mx-auto p-8 flex gap-8 h-full overflow-hidden">
+        {/* Dashboard Layout Split */}
+        <div className="flex flex-1 overflow-hidden">
           
-          {/* Left Area - Map */}
-          <div className="flex-[2] relative bg-slate-800/70 rounded-lg border border-[#3E4850] backdrop-blur-md overflow-hidden min-h-[500px]">
-             <img src="https://placehold.co/783x877" className="absolute inset-0 w-full h-full object-cover opacity-40 mix-blend-luminosity bg-white bg-blend-saturation" />
-             
-             {/* Fake Heatmap Blobs Overlay */}
-             <div className="absolute inset-0 z-0">
-               <div className="absolute w-[250px] h-[150px] bg-red-500/60 blur-3xl rounded-full" style={{ left: '35%', top: '35%' }}></div>
-               <div className="absolute w-[150px] h-[90px] bg-red-500/60 blur-2xl rounded-full" style={{ left: '40%', top: '40%' }}></div>
-               <div className="absolute w-[300px] h-[180px] bg-red-500/50 blur-3xl rounded-full" style={{ left: '55%', top: '45%' }}></div>
-               <div className="absolute w-[180px] h-[110px] bg-orange-500/50 blur-3xl rounded-full" style={{ left: '25%', top: '50%' }}></div>
-               <div className="absolute w-[120px] h-[70px] bg-orange-500/50 blur-2xl rounded-full" style={{ left: '75%', top: '30%' }}></div>
-             </div>
+          {/* Map Section (70%) */}
+          <div className="relative flex-[7] bg-[#020617] overflow-hidden group border-r border-[#3e4850]">
+            <MapComponent heatspots={hotspots.map(hs => ({ latitude: hs.latitude, longitude: hs.longitude, intensity: hs.count }))} />
+            
+            {/* Live Data Map Overlay Simulation */}
+            <div className="absolute inset-0 z-10 pointer-events-none">
+            </div>
 
-             {/* Intensity Legend */}
-             <div className="absolute top-4 left-4 p-3 bg-[#060E20]/90 rounded border border-[#3E4850] backdrop-blur-sm flex flex-col gap-2 z-10">
-                <span className="text-[#88929B] text-xs font-mono font-medium tracking-wide">HEATMAP INTENSITY</span>
-                <div className="flex items-center gap-3">
-                   <div className="w-3 h-3 bg-[#FFB4AB] rounded-full"></div>
-                   <span className="text-[#BEC8D2] text-xs">High</span>
-                   <div className="w-3 h-3 bg-[#D88A00] rounded-full"></div>
-                   <span className="text-[#BEC8D2] text-xs">Med</span>
-                   <div className="w-3 h-3 bg-[#89CEFF] rounded-full"></div>
-                   <span className="text-[#BEC8D2] text-xs">Low</span>
+            <div className="absolute top-6 right-6 flex flex-col gap-3 z-20">
+              <div className="bg-[#131b2e]/90 border border-[#3e4850] p-4 rounded backdrop-blur-md">
+                <h4 className="text-[10px] uppercase tracking-wider mb-3 opacity-70 font-semibold">INTENSITY LEGEND</h4>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-4 h-4 rounded-full bg-red-500 shadow-[0_0_10px_#ef4444]"></div>
+                    <span className="text-xs font-medium">Critical (&gt;40)</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-4 h-4 rounded-full bg-orange-500 shadow-[0_0_10px_#f97316]"></div>
+                    <span className="text-xs font-medium">Moderate (20-40)</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-4 h-4 rounded-full bg-yellow-500 shadow-[0_0_10px_#eab308]"></div>
+                    <span className="text-xs font-medium">Elevated (10-20)</span>
+                  </div>
                 </div>
-             </div>
-
-             {/* Stats Overlay */}
-             <div className="absolute bottom-4 right-4 p-4 bg-[#222A3D]/90 rounded border border-[#3E4850] backdrop-blur-sm flex items-center gap-6 z-10">
-                <div className="flex flex-col">
-                   <span className="text-[#88929B] text-xs font-mono">INCIDENT RADIUS</span>
-                   <span className="text-[#89CEFF] text-base font-mono">12.4km</span>
-                </div>
-                <div className="w-px h-10 bg-[#3E4850]"></div>
-                <div className="flex flex-col">
-                   <span className="text-[#88929B] text-xs font-mono">ACTIVE PATROLS</span>
-                   <span className="text-[#89CEFF] text-base font-mono">34</span>
-                </div>
-             </div>
+              </div>
+            </div>
           </div>
 
-          {/* Right Area - Stats & Trends */}
-          <div className="flex-[1] flex flex-col gap-6 overflow-y-auto pr-1 pb-4 custom-scrollbar min-w-[350px]">
+          {/* Analytics Panel (30%) */}
+          <div className="flex-[3] bg-[#171f33] overflow-y-auto custom-scrollbar p-6 space-y-6">
             
+            <div className="bg-[#222a3d] border border-[#3e4850] rounded-xl p-5 overflow-hidden">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-[16px] font-bold">High-Risk Hotspots</h3>
+                <span className="material-symbols-outlined text-sm text-[#bec8d2]">warning</span>
+              </div>
+              <div className="space-y-3">
+                {hotspots.length === 0 ? (
+                  <div className="text-center text-sm text-[#bec8d2] py-4">No data available</div>
+                ) : (
+                  hotspots.map((hs, i) => {
+                    let colorClass = "border-red-500 bg-[#2d3449]";
+                    let numColor = "text-red-400";
+                    if (i > 0 && i <= 2) { colorClass = "border-orange-500/70 bg-[#2d3449]/60"; numColor = "text-orange-400"; }
+                    if (i > 2) { colorClass = "border-yellow-500/40 bg-[#2d3449]/60"; numColor = "text-yellow-400"; }
+
+                    return (
+                      <div key={i} className={`flex items-center justify-between p-2 rounded border-l-4 ${colorClass}`}>
+                        <div>
+                          <div className="text-xs font-bold">{hs.name}</div>
+                          <div className="text-[10px] text-[#bec8d2]">Area: {hs.sector}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className={`text-xl font-bold font-mono ${numColor}`}>{hs.count}</div>
+                          <div className="text-[10px] text-[#bec8d2]">Cases</div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
             {/* Accidents by Time of Day */}
-            <div className="p-6 bg-slate-800/70 rounded-lg border border-[#3E4850] backdrop-blur-md flex flex-col gap-6 shrink-0">
-              <div className="flex justify-between items-center">
-                 <h2 className="text-[#DAE2FD] text-lg font-semibold">Accidents by Time of Day</h2>
-                 <div className="w-5 h-5 bg-[#88929B]"></div>
-              </div>
-              
-              {/* Fake Bar Chart */}
-              <div className="flex justify-between items-end h-24 pt-4 border-b border-[#3E4850]">
-                 <div className="w-8 bg-[#3E4850] h-[20%] hover:bg-[#89CEFF] transition-all cursor-pointer rounded-t-sm"></div>
-                 <div className="w-8 bg-[#3E4850] h-[40%] hover:bg-[#89CEFF] transition-all cursor-pointer rounded-t-sm"></div>
-                 <div className="w-8 bg-[#89CEFF] h-[75%] shadow-[0_0_10px_rgba(137,206,255,0.4)] transition-all cursor-pointer rounded-t-sm"></div>
-                 <div className="w-8 bg-[#3E4850] h-[60%] hover:bg-[#89CEFF] transition-all cursor-pointer rounded-t-sm"></div>
-                 <div className="w-8 bg-[#FFB4AB] h-[95%] shadow-[0_0_10px_rgba(255,180,171,0.4)] transition-all cursor-pointer rounded-t-sm"></div>
-                 <div className="w-8 bg-[#3E4850] h-[30%] hover:bg-[#89CEFF] transition-all cursor-pointer rounded-t-sm"></div>
-              </div>
-
-              {/* Chart Labels */}
-              <div className="flex justify-between">
-                 <span className="text-[#88929B] text-[10px] font-mono">00:00</span>
-                 <span className="text-[#88929B] text-[10px] font-mono">04:00</span>
-                 <span className="text-[#89CEFF] text-[10px] font-mono">08:00</span>
-                 <span className="text-[#88929B] text-[10px] font-mono">12:00</span>
-                 <span className="text-[#FFB4AB] text-[10px] font-mono">17:00</span>
-                 <span className="text-[#88929B] text-[10px] font-mono">21:00</span>
-              </div>
-            </div>
-
-            {/* Monthly Incident Trends */}
-            <div className="p-6 bg-slate-800/70 rounded-lg border border-[#3E4850] backdrop-blur-md flex flex-col gap-6 shrink-0">
-               <div className="flex justify-between items-center">
-                 <h2 className="text-[#DAE2FD] text-lg font-semibold">Monthly Incident Trends</h2>
-                 <div className="w-5 h-3 bg-[#88929B]"></div>
-              </div>
-              
-              <div className="h-40 relative flex flex-col justify-end">
-                 {/* Fake Area Chart */}
-                 <div className="w-full h-20 border-t-2 border-[#89CEFF] bg-gradient-to-b from-[#89CEFF]/20 to-transparent relative"></div>
-                 
-                 {/* Labels */}
-                 <div className="flex justify-between mt-2 px-1">
-                    <span className="text-[#88929B] text-[10px] font-mono">JAN</span>
-                    <span className="text-[#88929B] text-[10px] font-mono">APR</span>
-                    <span className="text-[#88929B] text-[10px] font-mono">JUL</span>
-                    <span className="text-[#88929B] text-[10px] font-mono">OCT</span>
-                    <span className="text-[#88929B] text-[10px] font-mono">DEC</span>
-                 </div>
-              </div>
-            </div>
-
-            {/* Top 3 High-Risk Roads */}
-            <div className="p-6 bg-slate-800/70 rounded-lg border border-[#3E4850] backdrop-blur-md flex flex-col gap-6 shrink-0">
-               <div className="flex justify-between items-center">
-                 <h2 className="text-[#DAE2FD] text-lg font-semibold">Top 3 High-Risk Roads</h2>
-                 <div className="w-5 h-3 bg-[#88929B]"></div>
-              </div>
-
-              <div className="flex flex-col gap-4">
-                 
-                 {/* Row 1 */}
-                 <div className="flex justify-between items-center">
-                    <div className="flex gap-3">
-                       <span className="text-[#BEC8D2] text-base font-mono">01</span>
-                       <div className="flex flex-col">
-                          <span className="text-[#DAE2FD] text-base font-semibold">I-95 Northbound</span>
-                          <span className="text-[#88929B] text-[10px] font-mono">Sector A - Mile 22</span>
-                       </div>
-                    </div>
-                    <div className="flex flex-col text-right">
-                       <span className="text-[#FFB4AB] text-base font-mono">452</span>
-                       <span className="text-[#88929B] text-[10px] font-mono">INCIDENTS</span>
-                    </div>
-                 </div>
-
-                 <div className="w-full h-px bg-[#3E4850]"></div>
-
-                 {/* Row 2 */}
-                 <div className="flex justify-between items-center">
-                    <div className="flex gap-3">
-                       <span className="text-[#BEC8D2] text-base font-mono">02</span>
-                       <div className="flex flex-col">
-                          <span className="text-[#DAE2FD] text-base font-semibold">Broadway Ave</span>
-                          <span className="text-[#88929B] text-[10px] font-mono">Central District</span>
-                       </div>
-                    </div>
-                    <div className="flex flex-col text-right">
-                       <span className="text-[#FFB95F] text-base font-mono">388</span>
-                       <span className="text-[#88929B] text-[10px] font-mono">INCIDENTS</span>
-                    </div>
-                 </div>
-
-                 <div className="w-full h-px bg-[#3E4850]"></div>
-
-                 {/* Row 3 */}
-                 <div className="flex justify-between items-center">
-                    <div className="flex gap-3">
-                       <span className="text-[#BEC8D2] text-base font-mono">03</span>
-                       <div className="flex flex-col">
-                          <span className="text-[#DAE2FD] text-base font-semibold">Harbor Bridge</span>
-                          <span className="text-[#88929B] text-[10px] font-mono">Industrial Corridor</span>
-                       </div>
-                    </div>
-                    <div className="flex flex-col text-right">
-                       <span className="text-[#FFB95F] text-base font-mono">312</span>
-                       <span className="text-[#88929B] text-[10px] font-mono">INCIDENTS</span>
-                    </div>
-                 </div>
-              </div>
-
-              <button className="w-full py-2 mt-2 rounded border border-[#89CEFF]/20 flex justify-center items-center hover:bg-[#89CEFF]/10 transition-colors">
-                 <span className="text-[#89CEFF] text-xs font-mono font-medium tracking-wide">VIEW FULL RANKING</span>
-              </button>
-            </div>
-
           </div>
         </div>
       </main>

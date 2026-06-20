@@ -79,9 +79,9 @@ export function AddCCTVDialog({
 				return;
 			}
 
-			// Validate file size (limit to 100MB)
-			if (file.size > 100 * 1024 * 1024) {
-				alert('Video file size must be less than 100MB.');
+			// Validate file size (limit to 200MB)
+			if (file.size > 200 * 1024 * 1024) {
+				alert('Video file size must be less than 200MB.');
 				return;
 			}
 
@@ -272,7 +272,7 @@ export function AddCCTVDialog({
 										</div>
 									)}
 									<p className='text-xs text-gray-400'>
-										Supported formats: MP4, AVI, MOV (max 100MB)
+										Supported formats: MP4, AVI, MOV (max 200MB)
 									</p>
 								</div>
 							</div>
@@ -358,9 +358,9 @@ export function AddCCTVDialog({
 										marker={
 											location
 												? {
-														latitude: location.latitude,
-														longitude: location.longitude,
-													}
+													latitude: location.latitude,
+													longitude: location.longitude,
+												}
 												: null
 										}
 									/>

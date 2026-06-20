@@ -6,6 +6,9 @@ import { useSearchParams } from 'next/navigation';
 import { TopHeader } from '@/components/TopHeader';
 import { Sidebar } from '@/components/Sidebar';
 import { useWebSocket } from '@/hooks/use-websocket';
+import dynamic from 'next/dynamic';
+
+const MapComponent = dynamic(() => import('@/components/MapComponent'), { ssr: false });
 
 const WS_URL =
   process.env.NEXT_PUBLIC_BACKEND_WS_URL || 'ws://localhost:8000/ws/detect';
@@ -272,14 +275,10 @@ function CameraDetailContent() {
                   </div>
                 </div>
 
-                <div className="h-48 relative bg-[#0B1326] rounded border border-slate-700 overflow-hidden flex justify-center items-center shrink-0">
-                  <img
-                    src="https://placehold.co/740x190/0B1326/3E4850?text=MAP+VIEW"
-                    className="absolute inset-0 w-full h-full object-cover opacity-40 mix-blend-screen"
-                  />
-                  <div className="absolute top-[40%] left-[45%] w-6 h-6 bg-orange-400/30 rounded-full flex justify-center items-center shadow-[0_0_15px_rgba(216,138,0,0.4)]">
-                    <div className="w-2 h-2 bg-[#FFB95F] rounded-full"></div>
-                  </div>
+                <div className="h-48 relative bg-[#0B1326] rounded border border-slate-700 overflow-hidden flex justify-center items-center shrink-0 z-0">
+                  {cctv && (
+                    <MapComponent marker={{ latitude: cctv.latitude, longitude: cctv.longitude }} interactive={false} />
+                  )}
                 </div>
               </div>
 

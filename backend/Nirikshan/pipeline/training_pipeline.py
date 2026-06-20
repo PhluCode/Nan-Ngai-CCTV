@@ -7,7 +7,7 @@ from Nirikshan.components.model_trainer import ModelTrainer
 from Nirikshan.logger import logging
 
 class TrainingPipeline:
-    CONFIDENCE_THRESHOLD = 0.85
+    CONFIDENCE_THRESHOLD = 0.7
     ACCIDENT_CLASS_IDS = {1, 2, 3, 5, 6, 7, 8}
     ACCIDENT_CLIPS_DIR = Path("accident_clips")
     ACCIDENT_IMAGES_DIR = Path("accident_images")

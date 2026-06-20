@@ -4,6 +4,9 @@ import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { TopHeader } from '@/components/TopHeader';
 import { Sidebar } from '@/components/Sidebar';
+import dynamic from 'next/dynamic';
+
+const MapComponent = dynamic(() => import('@/components/MapComponent'), { ssr: false });
 import { AlertTriangle, MapPin, CheckCircle, XCircle, Trash2, Camera, ShieldAlert } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -24,13 +27,15 @@ interface Incident {
   detectedAt: string;
   verificationStatus: string;
   incidentType: string;
+  imageUrl: string | null;
+  videoClipUrl: string | null;
 }
 
 export default function IncidentDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
-  
+
   const [incident, setIncident] = useState<Incident | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -66,13 +71,13 @@ export default function IncidentDetailPage() {
       const res = await fetch(`/api/incidents/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          action: 'verify', 
+        body: JSON.stringify({
+          action: 'verify',
           verificationStatus: status,
-          responseNeeded: status === 'APPROVED' 
+          responseNeeded: status === 'APPROVED'
         })
       });
-      
+
       if (res.ok) {
         toast({ title: `Incident marked as ${status}` });
         if (status === 'APPROVED') {
@@ -92,15 +97,15 @@ export default function IncidentDetailPage() {
 
   if (loading) {
     return (
-      <div className="w-full h-screen bg-[#020617] flex justify-center items-center text-[#BEC8D2]">
-        <span className="animate-pulse">Loading Incident Data...</span>
+      <div suppressHydrationWarning className="w-full h-screen bg-[#020617] flex justify-center items-center text-[#BEC8D2]">
+        <span className="animate-bounce">Loading Incident Data...</span>
       </div>
     );
   }
 
   if (!incident) {
     return (
-      <div className="w-full h-screen bg-[#020617] flex justify-center items-center flex-col gap-4">
+      <div suppressHydrationWarning className="w-full h-screen bg-[#020617] flex justify-center items-center flex-col gap-4">
         <span className="text-[#DAE2FD] text-xl">Incident not found</span>
         <Link href="/" className="px-4 py-2 bg-[#2D3449] rounded text-white hover:bg-slate-700">
           Return to Monitor
@@ -110,21 +115,21 @@ export default function IncidentDetailPage() {
   }
 
   const d = new Date(incident.detectedAt);
-  const formattedDate = d.toLocaleString('en-GB', { 
-    year: 'numeric', month: 'short', day: '2-digit', 
-    hour: '2-digit', minute: '2-digit', second: '2-digit', timeZoneName: 'short' 
+  const formattedDate = d.toLocaleString('en-GB', {
+    year: 'numeric', month: 'short', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', timeZoneName: 'short'
   });
 
   return (
-    <div className="w-full h-screen overflow-hidden relative bg-gradient-to-t from-[#020617] to-[#020617] flex text-white font-sans">
-      
+    <div suppressHydrationWarning className="w-full h-screen overflow-hidden relative bg-gradient-to-t from-[#020617] to-[#020617] flex text-white font-sans">
+
       <Sidebar />
 
       <main className="flex-1 flex flex-col relative h-full pt-16">
         <TopHeader />
 
         <div className="w-full max-w-[1920px] mx-auto px-8 pt-[88px] pb-6 flex flex-col gap-4 h-full overflow-hidden">
-          
+
           <div className="flex justify-between items-center pb-2 shrink-0">
             <div className="flex items-center gap-2">
               <span className="text-[#BEC8D2] text-sm">Monitor</span>
@@ -137,16 +142,22 @@ export default function IncidentDetailPage() {
           </div>
 
           <div className="flex flex-col xl:flex-row gap-4 h-full min-h-0 overflow-hidden">
-            
+
             {/* Left Video Area */}
             <div className="flex-[2] relative bg-black rounded border border-slate-700 overflow-hidden flex justify-center items-center min-h-[400px]">
-              {incident.cctv?.rtspUrl && incident.cctv.rtspUrl.endsWith('.mp4') ? (
+              {incident.videoClipUrl ? (
+                <video src={incident.videoClipUrl} className="absolute inset-0 w-full h-full object-contain" autoPlay loop muted playsInline />
+              ) : incident.imageUrl ? (
+                <img src={incident.imageUrl} className="absolute inset-0 w-full h-full object-contain" alt="Accident Detection" />
+              ) : incident.cctv?.accidentVideoUrl ? (
+                <video src={incident.cctv.accidentVideoUrl} className="absolute inset-0 w-full h-full object-cover opacity-80" autoPlay loop muted playsInline />
+              ) : incident.cctv?.rtspUrl && incident.cctv.rtspUrl.endsWith('.mp4') ? (
                 <video src={incident.cctv.rtspUrl} className="absolute inset-0 w-full h-full object-cover opacity-80" autoPlay loop muted playsInline />
               ) : (
                 <img src="https://placehold.co/790x840" className="absolute inset-0 w-full h-full object-cover opacity-60 mix-blend-screen" />
               )}
               <div className="absolute top-0 left-0 w-full h-[2px] bg-sky-200/20"></div>
-              
+
               <div className="absolute inset-0 p-6 flex flex-col justify-between">
                 <div className="flex justify-between items-start">
                   <div className="flex flex-col gap-1">
@@ -156,9 +167,9 @@ export default function IncidentDetailPage() {
                     </div>
                     <span className="text-[#DAE2FD] text-sm font-mono mt-1">REC {incident.id.slice(-6).toUpperCase()} // CAM_ID: {incident.cctv?.id.slice(-4) || 'UNK'}</span>
                   </div>
-                  
+
                   <div className="w-[210px] p-3 bg-[#0B1326]/80 rounded border border-orange-300/50 shadow-[0_0_15px_rgba(216,138,0,0.4)] backdrop-blur-md flex flex-col gap-1">
-                    <span className="text-[#FFB95F] text-[11px] font-mono leading-none flex items-center gap-1"><ShieldAlert className="w-3 h-3"/> DETECTION STATUS</span>
+                    <span className="text-[#FFB95F] text-[11px] font-mono leading-none flex items-center gap-1"><ShieldAlert className="w-3 h-3" /> DETECTION STATUS</span>
                     <span className="text-[#DAE2FD] text-lg font-semibold leading-tight mt-1">{incident.incidentType?.replace('_', ' ') || 'AI Accident Detected'}</span>
                     <span className="text-[#BEC8D2] text-sm leading-none mt-1">10s Replay Loop active</span>
                   </div>
@@ -177,7 +188,7 @@ export default function IncidentDetailPage() {
 
             {/* Right Panel */}
             <div className="flex-1 flex flex-col gap-4 overflow-y-auto pr-1 pb-4 custom-scrollbar">
-              
+
               {/* Incident Profile Card */}
               <div className="p-6 bg-[#171F33] rounded-lg border border-slate-700 flex flex-col gap-6 shrink-0">
                 <div className="flex justify-between items-start">
@@ -208,18 +219,17 @@ export default function IncidentDetailPage() {
                   </div>
                 </div>
 
-                {/* Map Placeholder */}
-                <div className="h-48 relative bg-[#0B1326] rounded border border-slate-700 overflow-hidden flex justify-center items-center shrink-0">
-                  <img src="https://placehold.co/740x190/0B1326/3E4850?text=MAP+VIEW" className="absolute inset-0 w-full h-full object-cover opacity-40 mix-blend-screen" />
-                  <div className="absolute top-[40%] left-[45%] w-6 h-6 bg-orange-400/30 rounded-full flex justify-center items-center shadow-[0_0_15px_rgba(216,138,0,0.4)]">
-                    <MapPin className="w-4 h-4 text-[#FFB95F]" />
-                  </div>
+                {/* Map Component */}
+                <div className="h-48 relative bg-[#0B1326] rounded border border-slate-700 overflow-hidden flex justify-center items-center shrink-0 z-0">
+                  {incident.cctv && (
+                    <MapComponent marker={{ latitude: incident.cctv.latitude, longitude: incident.cctv.longitude }} interactive={false} />
+                  )}
                 </div>
               </div>
 
               {/* Confirm & Dispatch */}
               <div className="flex flex-col gap-3 shrink-0 mt-2">
-                <button 
+                <button
                   disabled={isSubmitting}
                   onClick={() => handleVerify('APPROVED')}
                   className="w-full py-5 bg-[#A40217] rounded-lg border border-red-200/20 flex justify-center items-center gap-3 hover:bg-red-700 transition-colors shadow-lg disabled:opacity-50"
@@ -231,7 +241,7 @@ export default function IncidentDetailPage() {
                 </button>
 
                 <div className="flex gap-4">
-                  <button 
+                  <button
                     disabled={isSubmitting}
                     onClick={() => handleVerify('REJECTED')}
                     className="flex-1 py-4 bg-[#2D3449] rounded-lg border border-slate-700 flex justify-center items-center gap-2 hover:bg-slate-700 transition-colors disabled:opacity-50"
@@ -239,7 +249,7 @@ export default function IncidentDetailPage() {
                     <XCircle className="w-5 h-5 text-[#BEC8D2]" />
                     <span className="text-[#BEC8D2] text-base font-semibold">False Alarm</span>
                   </button>
-                  <button 
+                  <button
                     disabled={isSubmitting}
                     onClick={() => handleVerify('REJECTED')}
                     className="flex-1 py-4 bg-[#2D3449] rounded-lg border border-slate-700 flex justify-center items-center gap-2 hover:bg-slate-700 transition-colors disabled:opacity-50"

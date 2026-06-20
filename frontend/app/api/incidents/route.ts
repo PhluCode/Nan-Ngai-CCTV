@@ -54,6 +54,17 @@ export async function POST(req: Request) {
 	try {
 		const body = await req.json();
 
+		// Handle backend video update
+		if (body.action === 'updateVideo' && body.id && body.videoClipUrl) {
+			const { PrismaClient } = await import('@prisma/client');
+			const prisma = new PrismaClient();
+			const updatedIncident = await prisma.incident.update({
+				where: { id: body.id },
+				data: { videoClipUrl: body.videoClipUrl },
+			});
+			return NextResponse.json(updatedIncident, { status: 200 });
+		}
+
 		if (!body.cctvId) {
 			return NextResponse.json(
 				{ error: 'CCTV ID is required' },

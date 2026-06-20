@@ -32,7 +32,14 @@ ACCIDENT_IMAGES_DIR.mkdir(exist_ok=True)
 PUBLIC_IMAGES_DIR = Path("../frontend/public/accident_images")
 PUBLIC_IMAGES_DIR.mkdir(exist_ok=True, parents=True)
 
+ACCIDENT_VIDEOS_DIR = Path("accident_videos")
+ACCIDENT_VIDEOS_DIR.mkdir(exist_ok=True)
+
+PUBLIC_VIDEOS_DIR = Path("../frontend/public/accident_videos")
+PUBLIC_VIDEOS_DIR.mkdir(exist_ok=True, parents=True)
+
 app.mount("/accident_images", StaticFiles(directory=str(ACCIDENT_IMAGES_DIR)), name="accident_images")
+app.mount("/accident_videos", StaticFiles(directory=str(ACCIDENT_VIDEOS_DIR)), name="accident_videos")
 
 app.add_middleware(
     CORSMiddleware,
@@ -45,13 +52,14 @@ app.add_middleware(
 active_connections: Dict[str, WebSocket] = {}
 detected_accidents: Dict[str, Set[int]] = {}  
 frame_buffers: Dict[str, Deque] = {}
+active_recordings: Dict[str, dict] = {}
 tracker_instances: Dict[str, sv.ByteTrack] = {}
 traces: Dict[str, Dict[int, deque]] = {}
 cctv_metadata: Dict[str, Dict] = {}
 
 MIN_FRAMES_BETWEEN_DETECTIONS = 30  
-BUFFER_SIZE = 15 
-POST_ACCIDENT_FRAMES = 15 
+BUFFER_SIZE = 30 
+POST_ACCIDENT_FRAMES = 30 
 ACCIDENT_COOLDOWN_FRAMES = 90
 ACCIDENT_STATE_DURATION = 120
 TRACE_LENGTH = 30
@@ -159,6 +167,8 @@ async def accident_detection_websocket(websocket: WebSocket):
             del tracker_instances[connection_id]
         if connection_id in cctv_metadata:
             del cctv_metadata[connection_id]
+        if connection_id in active_recordings:
+            del active_recordings[connection_id]
         logging.info(f"Cleaned up connection: {connection_id}")
 
 def save_accident_image(frame, connection_id: str, frame_number: int) -> Optional[str]:
@@ -191,6 +201,57 @@ def save_accident_image(frame, connection_id: str, frame_number: int) -> Optiona
         
     except Exception as e:
         logging.error(f"Error saving accident image: {str(e)}")
+        logging.error(traceback.format_exc())
+        return None
+
+async def save_accident_video(frames: List[np.ndarray], fps: float, width: int, height: int, incident_id: str, websocket: WebSocket):
+    if not frames:
+        return None
+    try:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"accident_{timestamp}_{incident_id}.mp4"
+        
+        backend_path = ACCIDENT_VIDEOS_DIR / filename
+        public_path = PUBLIC_VIDEOS_DIR / filename
+        
+        fourcc = cv2.VideoWriter_fourcc(*'avc1')
+        out = cv2.VideoWriter(str(backend_path), fourcc, fps, (width, height))
+        for f in frames:
+            out.write(f)
+        out.release()
+        
+        try:
+            import shutil
+            shutil.copy2(str(backend_path), str(public_path))
+            logging.info(f"Copied video to public directory: {public_path}")
+        except Exception as e:
+            logging.error(f"Failed to copy video to public directory: {str(e)}")
+
+        video_url = f"/accident_videos/{filename}"
+        
+        payload = {
+            "action": "updateVideo",
+            "id": incident_id,
+            "videoClipUrl": video_url
+        }
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(f"{FRONTEND_API_URL}/api/incidents", json=payload)
+                if resp.status_code == 200:
+                    logging.info(f"Updated incident {incident_id} with video URL")
+                    await websocket.send_json({
+                        "type": "video_saved",
+                        "message": f"Accident video saved: {video_url}",
+                        "severity": "info",
+                        "video_url": video_url,
+                        "incident_id": incident_id
+                    })
+        except Exception as e:
+            logging.error(f"Error updating incident video URL: {str(e)}")
+
+        return video_url
+    except Exception as e:
+        logging.error(f"Error saving accident video: {str(e)}")
         logging.error(traceback.format_exc())
         return None
 
@@ -301,13 +362,20 @@ async def process_video_stream(websocket: WebSocket, video_url: str, connection_
         last_frame_time = asyncio.get_event_loop().time()
         
         box_annotator = sv.BoxAnnotator(thickness=2)
+        
+        last_tracked_detections = sv.Detections.empty()
             
-        while cap.isOpened():
+        while True:
+            if not cap.isOpened():
+                break
+                
             batch_start_time = asyncio.get_event_loop().time()
             
             ret, frame = cap.read()
             if not ret:
-                break
+                # Loop the video
+                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                continue
                 
             frame_count += 1
             
@@ -316,21 +384,28 @@ async def process_video_stream(websocket: WebSocket, video_url: str, connection_
                 
             frame_buffers[connection_id].append(frame.copy())
             
-            boxes, class_ids, confidences = pipeline.model_trainer.detect_objects(frame)
-
-            if boxes is not None and hasattr(boxes, "shape") and boxes.shape[0] > 0:
-                boxes_np = np.array(boxes, dtype=np.float32)
-                confidences_np = np.array(confidences, dtype=np.float32)
-                class_ids_np = np.array(class_ids, dtype=np.int32)
-
-                detections = sv.Detections(
-                    xyxy=boxes_np,
-                    confidence=confidences_np,
-                    class_id=class_ids_np
+            if frame_count % 3 == 0 or frame_count == 1:
+                loop = asyncio.get_event_loop()
+                boxes, class_ids, confidences = await loop.run_in_executor(
+                    None, pipeline.model_trainer.detect_objects, frame
                 )
-                tracked_detections = tracker.update_with_detections(detections)
+
+                if boxes is not None and hasattr(boxes, "shape") and boxes.shape[0] > 0:
+                    boxes_np = np.array(boxes, dtype=np.float32)
+                    confidences_np = np.array(confidences, dtype=np.float32)
+                    class_ids_np = np.array(class_ids, dtype=np.int32)
+
+                    detections = sv.Detections(
+                        xyxy=boxes_np,
+                        confidence=confidences_np,
+                        class_id=class_ids_np
+                    )
+                    tracked_detections = tracker.update_with_detections(detections)
+                else:
+                    tracked_detections = sv.Detections.empty()
+                last_tracked_detections = tracked_detections
             else:
-                tracked_detections = sv.Detections.empty()
+                tracked_detections = last_tracked_detections
             
             display_frame = frame.copy()
             
@@ -502,11 +577,31 @@ async def process_video_stream(websocket: WebSocket, video_url: str, connection_
                             "frame_number": frame_count,
                             "timestamp": datetime.now().timestamp()
                         })
+                        active_recordings[connection_id] = {
+                            "incident_id": incident_id,
+                            "frames": list(frame_buffers[connection_id]),
+                            "post_frames_left": POST_ACCIDENT_FRAMES
+                        }
 
             if in_accident_state:
                 accident_state_frames += 1
                 if accident_state_frames >= ACCIDENT_STATE_DURATION:
                     in_accident_state = False
+
+            if connection_id in active_recordings:
+                recording = active_recordings[connection_id]
+                recording["frames"].append(display_frame.copy())
+                recording["post_frames_left"] -= 1
+                if recording["post_frames_left"] <= 0:
+                    asyncio.create_task(save_accident_video(
+                        recording["frames"], 
+                        target_fps, 
+                        width, 
+                        height, 
+                        recording["incident_id"], 
+                        websocket
+                    ))
+                    del active_recordings[connection_id]
             
             _, buffer = cv2.imencode('.jpg', display_frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
             encoded_frame = base64.b64encode(buffer).decode('utf-8')
@@ -516,7 +611,7 @@ async def process_video_stream(websocket: WebSocket, video_url: str, connection_
                 "frame": encoded_frame,
                 "frame_number": frame_count,
                 "timestamp": datetime.now().timestamp(),
-                "display_time": frame_count / original_fps,
+                "display_time": (frame_count % total_frames) / original_fps if total_frames > 0 else 0,
                 "total_frames": total_frames,
                 "progress": frame_count / total_frames if total_frames > 0 else 0
             })

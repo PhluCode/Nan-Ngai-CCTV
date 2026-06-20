@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
@@ -11,6 +11,11 @@ import { Sidebar } from '@/components/Sidebar';
 export default function CCTVSettingsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -20,27 +25,27 @@ export default function CCTVSettingsPage() {
     }
   }, [status, session, router]);
 
-  if (status === 'loading' || (status === 'authenticated' && session?.user?.role !== 'ADMIN')) {
+  if (!mounted || status === 'loading' || (status === 'authenticated' && session?.user?.role !== 'ADMIN')) {
     return (
-      <div className="w-full h-screen bg-[#0B1326] flex justify-center items-center">
-        <Loader2 className="animate-spin text-[#89CEFF] w-8 h-8" />
+      <div suppressHydrationWarning className="w-full h-screen bg-[#0B1326] flex justify-center items-center">
+        {mounted && <Loader2 className="animate-spin text-[#89CEFF] w-8 h-8" />}
       </div>
     );
   }
 
   return (
     <div className="w-full h-screen overflow-hidden relative bg-[#0B1326] flex text-white font-sans">
-      
+
       <Sidebar />
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col relative h-full pt-16">
-        
+
         <TopHeader title="TRAFFIC COMMAND" />
 
         {/* Content Wrapper */}
         <div className="w-full max-w-[1920px] mx-auto p-8 pt-24 flex flex-col gap-6 h-full overflow-hidden">
-          
+
           {/* Title */}
           <div className="flex justify-between items-end shrink-0">
             <div className="flex flex-col gap-1">
