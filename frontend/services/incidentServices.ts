@@ -180,11 +180,19 @@ async function dispatchLineAlert(incident: {
 
 		const messages: LineMessage[] = [{ type: 'text', text }];
 
-		// Attach the accident snapshot. LINE requires a public HTTPS URL, so
-		// prefix the stored relative path with APP_BASE_URL (the deployed site).
-		const baseUrl = process.env.APP_BASE_URL;
-		if (incident.imageUrl && baseUrl?.startsWith('https://')) {
-			const imgUrl = `${baseUrl.replace(/\/$/, '')}${incident.imageUrl}`;
+		// Attach the accident snapshot. LINE requires a public HTTPS URL. If the
+		// backend uploaded to Cloudinary, imageUrl is already a full https URL;
+		// otherwise prefix the stored relative path with APP_BASE_URL.
+		let imgUrl: string | null = null;
+		if (incident.imageUrl?.startsWith('https://')) {
+			imgUrl = incident.imageUrl;
+		} else if (incident.imageUrl) {
+			const baseUrl = process.env.APP_BASE_URL;
+			if (baseUrl?.startsWith('https://')) {
+				imgUrl = `${baseUrl.replace(/\/$/, '')}${incident.imageUrl}`;
+			}
+		}
+		if (imgUrl) {
 			messages.push({
 				type: 'image',
 				originalContentUrl: imgUrl,

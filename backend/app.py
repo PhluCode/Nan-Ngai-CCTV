@@ -23,6 +23,15 @@ import httpx
 # detected accidents to its /api/incidents endpoint to persist them.
 FRONTEND_API_URL = os.getenv("FRONTEND_API_URL", "http://localhost:3000")
 
+# Optional Cloudinary upload so accident snapshots get a public HTTPS URL that
+# works from anywhere (LINE alerts, the deployed web app) instead of a local
+# path. Configure via CLOUDINARY_URL (cloudinary://key:secret@cloud_name).
+CLOUDINARY_ENABLED = bool(os.getenv("CLOUDINARY_URL"))
+if CLOUDINARY_ENABLED:
+    import cloudinary
+    import cloudinary.uploader
+    cloudinary.config(secure=True)  # reads CLOUDINARY_URL from the environment
+
 app = FastAPI()
 pipeline = TrainingPipeline()
 
@@ -196,6 +205,21 @@ def save_accident_image(frame, connection_id: str, frame_number: int) -> Optiona
             logging.info(f"Copied image to public directory: {public_path}")
         except Exception as e:
             logging.error(f"Failed to copy to public directory: {str(e)}")
+
+        # Prefer a public Cloudinary URL so the image is reachable from the
+        # deployed web app and LINE; fall back to the local path if upload
+        # fails or Cloudinary isn't configured.
+        if CLOUDINARY_ENABLED:
+            try:
+                result = cloudinary.uploader.upload(
+                    str(backend_path),
+                    folder="accidents",
+                    public_id=Path(filename).stem,
+                )
+                logging.info(f"Uploaded image to Cloudinary: {result['secure_url']}")
+                return result["secure_url"]
+            except Exception as e:
+                logging.error(f"Cloudinary upload failed: {str(e)}")
 
         return f"/accident_images/{filename}"
         
