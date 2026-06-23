@@ -9,7 +9,8 @@ class ModelTrainer:
     def __init__(self):
         model_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "model", "best.pt")
         logging.info(f"Loading YOLO model from {model_path}")
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        # Force CPU to avoid torchvision CUDA NMS error
+        self.device = torch.device('cpu')
         logging.info(f"Using device: {self.device}")
         self.model = YOLO(model_path).to(self.device)
         logging.info("Model loaded successfully")

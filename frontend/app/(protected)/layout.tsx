@@ -1,6 +1,7 @@
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import React from 'react'
+import { CameraProvider } from '@/contexts/CameraContext';
 
 const ProtectedLayout = async ({
   children,
@@ -12,10 +13,10 @@ const session = await auth();
     return redirect("/login")
   }
   return (
-    <>{children}</>
+    <CameraProvider>
+      {children}
+    </CameraProvider>
   )
 }
-
-
 
 export default ProtectedLayout

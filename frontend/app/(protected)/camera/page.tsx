@@ -8,10 +8,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { useWebSocket } from '@/hooks/use-websocket';
 import dynamic from 'next/dynamic';
 
-const IncidentMap = dynamic(() => import('@/components/IncidentMap'), {
-  ssr: false,
-  loading: () => <div className="h-full w-full flex justify-center items-center text-[#3E4850] text-xs font-mono">Loading map…</div>,
-});
+const MapComponent = dynamic(() => import('@/components/MapComponent'), { ssr: false });
 
 const WS_URL =
   process.env.NEXT_PUBLIC_BACKEND_WS_URL || 'ws://localhost:8000/ws/detect';
@@ -31,8 +28,6 @@ interface Cctv {
 
 interface NearestAid {
   name: string;
-  latitude: number;
-  longitude: number;
   distanceKm: number;
   etaMinutes: number;
 }
@@ -280,17 +275,9 @@ function CameraDetailContent() {
                   </div>
                 </div>
 
-                <div className="h-48 relative bg-[#0B1326] rounded border border-slate-700 overflow-hidden shrink-0 z-0">
-                  {cctv ? (
-                    <IncidentMap
-                      latitude={cctv.latitude}
-                      longitude={cctv.longitude}
-                      aidPost={nearest}
-                    />
-                  ) : (
-                    <div className="h-full w-full flex justify-center items-center text-[#3E4850] text-xs font-mono">
-                      Loading map…
-                    </div>
+                <div className="h-48 relative bg-[#0B1326] rounded border border-slate-700 overflow-hidden flex justify-center items-center shrink-0 z-0">
+                  {cctv && (
+                    <MapComponent marker={{ latitude: cctv.latitude, longitude: cctv.longitude }} interactive={false} />
                   )}
                 </div>
               </div>

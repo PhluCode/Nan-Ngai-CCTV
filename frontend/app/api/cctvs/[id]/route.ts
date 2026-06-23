@@ -125,6 +125,11 @@ export async function DELETE(
 ) {
 	const { id } = await params; // Use the id as a string directly
 	try {
+		// Delete related incidents first to avoid foreign key constraint error
+		await prisma.incident.deleteMany({
+			where: { cctvId: id }
+		});
+
 		const deletedCCTV = await prisma.cCTV.delete({
 			where: { id },
 		});
