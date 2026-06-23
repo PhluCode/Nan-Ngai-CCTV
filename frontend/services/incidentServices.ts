@@ -136,7 +136,7 @@ async function dispatchLineAlert(incident: {
 	incidentType: IncidentType | null;
 	severity: IncidentSeverity | null;
 	imageUrl: string | null;
-	cctv: { name: string; latitude: number; longitude: number };
+	cctv: { name: string; latitude: number; longitude: number; landmark: string | null };
 }) {
 	try {
 		const lat = incident.latitude ?? incident.cctv.latitude;
@@ -170,10 +170,18 @@ async function dispatchLineAlert(incident: {
 			hour12: false,
 		});
 
+		// The backend may store location as the literal "Unknown location";
+		// fall back to the camera name (+ landmark) in that case.
+		const hasLocation =
+			incident.location && incident.location !== 'Unknown location';
+		const locationText = hasLocation
+			? incident.location
+			: [incident.cctv.name, incident.cctv.landmark].filter(Boolean).join(' - ');
+
 		const text = [
 			'🚨 แจ้งเตือนอุบัติเหตุ',
 			`เวลาเกิดเหตุ: ${when} น.`,
-			`สถานที่: ${incident.location ?? incident.cctv.name}`,
+			`สถานที่: ${locationText}`,
 			`สถานที่ใกล้เคียง: ${nearestLine}`,
 			`แผนที่: ${mapLink}`,
 		].join('\n');
