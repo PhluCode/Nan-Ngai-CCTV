@@ -18,6 +18,9 @@ from Nirikshan.logger import logging
 from pathlib import Path
 import supervision as sv
 import httpx
+from dotenv import load_dotenv
+
+load_dotenv()  # read backend/.env into the environment
 
 # Base URL of the Next.js app that owns the database/API. The backend POSTs
 # detected accidents to its /api/incidents endpoint to persist them.
