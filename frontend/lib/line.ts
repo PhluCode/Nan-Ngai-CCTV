@@ -26,7 +26,10 @@ export async function sendLineMessages(
 		return { ok: false, error: 'LINE_CHANNEL_ACCESS_TOKEN not configured' };
 	}
 
-	const target = process.env.LINE_TARGET_ID;
+	// Sanitize the target: strip stray surrounding quotes/whitespace (a common
+	// env-var mistake). A blank value means broadcast to all OA followers.
+	const raw = process.env.LINE_TARGET_ID?.trim().replace(/^["']|["']$/g, '').trim();
+	const target = raw && raw.length > 0 ? raw : undefined;
 	const url = target ? PUSH_URL : BROADCAST_URL;
 	const body = target ? { to: target, messages } : { messages };
 
