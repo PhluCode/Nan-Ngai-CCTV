@@ -255,7 +255,22 @@ async def save_accident_video(frames: List[np.ndarray], fps: float, width: int, 
             logging.error(f"Failed to copy video to public directory: {str(e)}")
 
         video_url = f"/accident_videos/{filename}"
-        
+
+        # Prefer a public Cloudinary URL so the clip plays from the deployed
+        # web app; fall back to the local path if upload fails / not configured.
+        if CLOUDINARY_ENABLED:
+            try:
+                result = cloudinary.uploader.upload(
+                    str(backend_path),
+                    resource_type="video",
+                    folder="accident_videos",
+                    public_id=Path(filename).stem,
+                )
+                video_url = result["secure_url"]
+                logging.info(f"Uploaded video to Cloudinary: {video_url}")
+            except Exception as e:
+                logging.error(f"Cloudinary video upload failed: {str(e)}")
+
         payload = {
             "action": "updateVideo",
             "id": incident_id,
