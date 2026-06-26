@@ -95,6 +95,8 @@ interface CameraContextType {
   pendingIncidents: Incident[];
   fetchPendingIncidents: () => Promise<void>;
   wsStatus: string;
+  pausedCameras: Set<string>;
+  togglePause: (id: string) => void;
 }
 
 const CameraContext = createContext<CameraContextType | undefined>(undefined);
@@ -206,7 +208,19 @@ export function CameraProvider({ children }: { children: ReactNode }) {
   const [isAiEnabled, setIsAiEnabled] = useState<boolean>(false);
   const [pendingIncidents, setPendingIncidents] = useState<Incident[]>([]);
   const [wsStatus, setWsStatus] = useState<string>('idle');
+  const [pausedCameras, setPausedCameras] = useState<Set<string>>(new Set());
   const displayTimesRef = useRef<Record<string, number>>({});
+
+  // Pause/resume a camera: freezes its video and (if it's the active detection
+  // camera) stops detection so a looping clip can't keep re-alerting.
+  const togglePause = useCallback((id: string) => {
+    setPausedCameras(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   const getMaxCameras = useCallback(() => {
     switch (gridSize) {
@@ -282,10 +296,11 @@ export function CameraProvider({ children }: { children: ReactNode }) {
   return (
     <CameraContext.Provider value={{
       cctvs, loading, gridSize, setGridSize, selectedCameras, setSelectedCameras, getMaxCameras, getDisplayTime,
-      activeCameraId, setActiveCameraId, isAiEnabled, setIsAiEnabled, pendingIncidents, fetchPendingIncidents, wsStatus
+      activeCameraId, setActiveCameraId, isAiEnabled, setIsAiEnabled, pendingIncidents, fetchPendingIncidents, wsStatus,
+      pausedCameras, togglePause
     }}>
-      {/* Run background processing only for the active camera on the Live Monitoring page when AI is enabled */}
-      {isLivePage && activeCamera && isAiEnabled && (
+      {/* Run background processing only for the active camera on the Live Monitoring page when AI is enabled and the camera isn't paused */}
+      {isLivePage && activeCamera && isAiEnabled && !pausedCameras.has(activeCamera.id) && (
         <BackgroundCameraProcessor 
           key={`bg-${activeCamera.id}`} 
           cam={activeCamera} 
