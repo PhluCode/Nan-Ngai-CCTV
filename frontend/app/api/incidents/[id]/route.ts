@@ -114,15 +114,24 @@ export async function DELETE(
 
 		const { id } = await params;
 
+		// Optimistic temp incidents (from live detection) aren't in the DB.
+		if (id.startsWith('temp-')) {
+			return NextResponse.json({ success: true, skipped: 'temp' });
+		}
+
 		await prisma.incident.delete({
 			where: { id }
 		});
 
 		return NextResponse.json({ success: true });
 	} catch (error) {
+		// Already deleted / never existed — treat as success (idempotent).
+		if ((error as { code?: string }).code === 'P2025') {
+			return NextResponse.json({ success: true, alreadyGone: true });
+		}
 		console.error('Error deleting incident:', error);
 		return NextResponse.json(
-			{ error: 'Failed to delete incident' },
+			{ error: 'Failed to delete incident', details: (error as Error).message },
 			{ status: 500 }
 		);
 	}
