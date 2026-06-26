@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useRef, ReactNod
 import { usePathname } from 'next/navigation';
 import { useWebSocket } from '@/hooks/use-websocket';
 import { toast } from '@/hooks/use-toast';
+import { ToastAction } from '@/components/ui/toast';
 
 export interface CCTV {
   id: string;
@@ -27,6 +28,55 @@ export interface Incident {
   confidenceScore: number;
   detectedAt: string;
   cctv?: { name: string; sector: string; landmark: string };
+}
+
+let activeAlertInterval: ReturnType<typeof setInterval> | null = null;
+let activeAlertTimeout: ReturnType<typeof setTimeout> | null = null;
+
+function playAlertSound(durationMs: number = 30000) {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const audioCtx = new AudioContextClass();
+    
+    const playBeep = () => {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      // First high-pitched beep
+      const osc1 = audioCtx.createOscillator();
+      const gain1 = audioCtx.createGain();
+      osc1.connect(gain1);
+      gain1.connect(audioCtx.destination);
+      osc1.type = 'square';
+      osc1.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+      gain1.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      osc1.start(audioCtx.currentTime);
+      osc1.stop(audioCtx.currentTime + 0.1);
+      
+      // Second higher-pitched beep
+      const osc2 = audioCtx.createOscillator();
+      const gain2 = audioCtx.createGain();
+      osc2.connect(gain2);
+      gain2.connect(audioCtx.destination);
+      osc2.type = 'square';
+      osc2.frequency.setValueAtTime(1046.50, audioCtx.currentTime + 0.15); // C6
+      gain2.gain.setValueAtTime(0.1, audioCtx.currentTime + 0.15);
+      osc2.start(audioCtx.currentTime + 0.15);
+      osc2.stop(audioCtx.currentTime + 0.3);
+    };
+
+    if (activeAlertInterval) clearInterval(activeAlertInterval);
+    if (activeAlertTimeout) clearTimeout(activeAlertTimeout);
+
+    playBeep();
+    activeAlertInterval = setInterval(playBeep, 1000); // Repeat every second
+
+    activeAlertTimeout = setTimeout(() => {
+      if (activeAlertInterval) clearInterval(activeAlertInterval);
+    }, durationMs);
+
+  } catch (e) {
+    console.warn('Could not play alert sound:', e);
+  }
 }
 
 interface CameraContextType {
@@ -67,7 +117,7 @@ function BackgroundCameraProcessor({
 }: { 
   cam: CCTV, 
   setDisplayTime: (id: string, time: number) => void,
-  onAccidentDetected: () => void,
+  onAccidentDetected: (data?: any) => void,
   onIncidentSaved: (incidentId: string) => void,
   setWsStatus: (status: string) => void
 }) {
@@ -103,7 +153,7 @@ function BackgroundCameraProcessor({
             'color: white; background: red; font-size: 16px; font-weight: bold; padding: 6px; border-radius: 4px;',
             { camName: cam.name, camId: cam.id, data }
           );
-          onAccidentDetected();
+          onAccidentDetected(data);
         }
         if (data.type === 'incident_saved' && data.incident_id) {
           console.log(
@@ -235,20 +285,40 @@ export function CameraProvider({ children }: { children: ReactNode }) {
       cctvs, loading, gridSize, setGridSize, selectedCameras, setSelectedCameras, getMaxCameras, getDisplayTime,
       activeCameraId, setActiveCameraId, isAiEnabled, setIsAiEnabled, pendingIncidents, fetchPendingIncidents, wsStatus
     }}>
-      {/* Run background processing only for the active camera on the Live Monitoring page */}
-      {isLivePage && activeCamera && (
+      {/* Run background processing only for the active camera on the Live Monitoring page when AI is enabled */}
+      {isLivePage && activeCamera && isAiEnabled && (
         <BackgroundCameraProcessor 
           key={`bg-${activeCamera.id}`} 
           cam={activeCamera} 
           setDisplayTime={setDisplayTime} 
           setWsStatus={setWsStatus}
-          onAccidentDetected={() => {
+          onAccidentDetected={(data) => {
             console.log(`[CameraContext onAccidentDetected] Setting active alert for Cam: ${activeCamera.name}`);
             setCctvs(prev => prev.map(c => c.id === activeCamera.id ? { ...c, hasActiveAlert: true } : c));
+            
+            setPendingIncidents(prev => {
+              if (prev.some(inc => inc.id.startsWith('temp-') && inc.cctv?.name === activeCamera.name)) {
+                return prev;
+              }
+              const conf = data?.confidence ? data.confidence : 0.95;
+              const tempIncident: Incident = {
+                id: `temp-${Date.now()}`,
+                verificationStatus: 'PENDING',
+                incidentType: 'COLLISION',
+                confidenceScore: conf,
+                detectedAt: new Date().toISOString(),
+                cctv: { name: activeCamera.name, sector: activeCamera.sector || '', landmark: activeCamera.landmark || '' }
+              };
+              return [tempIncident, ...prev];
+            });
+
+            playAlertSound(30000);
             toast({
               title: "⚠️ ACCIDENT DETECTED",
               description: `A possible accident has been detected on ${activeCamera.name}.`,
               variant: "destructive",
+              className: "animate-shake",
+              duration: 30000,
             });
           }}
           onIncidentSaved={(incidentId) => {
@@ -256,10 +326,18 @@ export function CameraProvider({ children }: { children: ReactNode }) {
             setCctvs(prev => prev.map(c => c.id === activeCamera.id ? { ...c, hasActiveAlert: true, activeIncidentId: incidentId } : c));
             fetchCCTVs();
             fetchPendingIncidents();
+            playAlertSound(30000);
             toast({
               title: "🚨 INCIDENT RECORDED",
               description: `Collision registered for ${activeCamera.name}. Incident ID: ${incidentId.slice(-6).toUpperCase()}`,
               variant: "destructive",
+              className: "animate-shake",
+              duration: 30000,
+              action: (
+                <ToastAction altText="Engage View" onClick={() => window.location.href = `/incident/${incidentId}`}>
+                  ENGAGE VIEW
+                </ToastAction>
+              ),
             });
           }}
         />

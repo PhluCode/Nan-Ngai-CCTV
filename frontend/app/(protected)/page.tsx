@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { TopHeader } from '@/components/TopHeader';
 import { Sidebar } from '@/components/Sidebar';
 import { useCamera, CCTV } from '@/contexts/CameraContext';
+import { Video, Eye } from 'lucide-react';
+import { LiveRTSPStream } from '@/components/LiveRTSPStream';
 
 interface Incident {
   id: string;
@@ -52,32 +54,11 @@ export default function LiveMonitoringPage() {
     isAiEnabled,
     setIsAiEnabled,
     activeCameraId,
-    setActiveCameraId
+    setActiveCameraId,
+    pendingIncidents
   } = useCamera();
-  
+
   const [showSwapFor, setShowSwapFor] = useState<number | null>(null);
-  const [pendingIncidents, setPendingIncidents] = useState<Incident[]>([]);
-
-  useEffect(() => {
-    fetchPendingIncidents();
-    const interval = setInterval(() => {
-      fetchPendingIncidents();
-    }, 5000); // Poll every 5s for alerts
-    return () => clearInterval(interval);
-  }, []);
-
-  const fetchPendingIncidents = async () => {
-    try {
-      const res = await fetch('/api/incidents?status=PENDING');
-      if (res.ok) {
-        const data = await res.json();
-        setPendingIncidents(data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch pending incidents:', error);
-    }
-  };
-
   const getGridCols = () => {
     switch (gridSize) {
       case '2x2': return 'grid-cols-1 md:grid-cols-2';
@@ -120,7 +101,7 @@ export default function LiveMonitoringPage() {
           {/* Header */}
           <header className="flex justify-between items-center w-full shrink-0">
             <div className="flex items-center gap-2">
-              <div className="w-5 h-3.5 bg-[#89CEFF]"></div>
+              <Video className="w-6 h-6 text-[#89CEFF]" />
               <h1 className="text-[#DAE2FD] text-2xl font-semibold">Live Video Streams</h1>
             </div>
 
@@ -200,6 +181,8 @@ export default function LiveMonitoringPage() {
                         {/* Video Player */}
                         {cam.accidentVideoUrl ? (
                           <SyncedVideo cam={cam} />
+                        ) : cam.rtspUrl ? (
+                          <LiveRTSPStream cam={cam} />
                         ) : (
                           <div className="absolute inset-0 w-full h-full bg-[#171F33] flex justify-center items-center">
                             <span className="text-[#3E4850] text-sm font-mono">NO SIGNAL</span>
@@ -255,11 +238,17 @@ export default function LiveMonitoringPage() {
 
                         {/* Hover Engage View (For Alerts) */}
                         {cam.hasActiveAlert && (
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex justify-center items-center transition-opacity cursor-pointer backdrop-blur-sm z-30">
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex flex-col justify-center items-center gap-3 transition-opacity cursor-pointer backdrop-blur-sm z-30">
                             <Link href={`/incident/${cam.activeIncidentId}`}>
-                              <div className="px-4 py-2 bg-[#A40217] rounded-xl flex items-center gap-2 shadow-lg hover:bg-red-700 transition-colors">
-                                <div className="w-[18px] h-[18px] bg-[#FFAEA8]"></div>
-                                <span className="text-[#FFAEA8] text-sm font-bold">ENGAGE VIEW</span>
+                              <div className="px-5 py-2.5 bg-[#A40217] rounded-xl flex items-center gap-2 shadow-xl hover:bg-red-700 transition-colors w-48 justify-center border border-red-500/50">
+                                <Eye className="w-5 h-5 text-white" />
+                                <span className="text-white text-base font-bold tracking-wide">ENGAGE VIEW</span>
+                              </div>
+                            </Link>
+                            <Link href={`/camera?id=${cam.id}`}>
+                              <div className="px-3 py-1.5 bg-black/60 rounded-lg flex items-center gap-1.5 shadow border border-slate-700 hover:bg-slate-800 transition-colors w-36 justify-center">
+                                <Video className="w-3.5 h-3.5 text-[#89CEFF]" />
+                                <span className="text-[#89CEFF] text-xs font-medium">Camera Detail</span>
                               </div>
                             </Link>
                           </div>
@@ -268,8 +257,8 @@ export default function LiveMonitoringPage() {
                     );
 
                     const cardClasses = `relative aspect-video rounded overflow-hidden border group transition-all ${cam.hasActiveAlert
-                        ? 'bg-[#2D3449] border-red-500 shadow-[0_0_15px_2px_rgba(239,68,68,0.6)]'
-                        : 'bg-[#2D3449] border-[#3E4850] hover:border-[#89CEFF] hover:shadow-[0_0_15px_rgba(137,206,255,0.3)] cursor-pointer'
+                      ? 'bg-[#2D3449] border-red-500 shadow-[0_0_15px_2px_rgba(239,68,68,0.6)]'
+                      : 'bg-[#2D3449] border-[#3E4850] hover:border-[#89CEFF] hover:shadow-[0_0_15px_rgba(137,206,255,0.3)] cursor-pointer'
                       }`;
 
                     return cam.hasActiveAlert ? (
@@ -277,8 +266,8 @@ export default function LiveMonitoringPage() {
                         {CardContent}
                       </div>
                     ) : (
-                      <div 
-                        key={cam.id} 
+                      <div
+                        key={cam.id}
                         className={cardClasses}
                         onClick={() => window.location.href = `/camera?id=${cam.id}`}
                       >

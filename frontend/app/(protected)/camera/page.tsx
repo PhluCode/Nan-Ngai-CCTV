@@ -8,6 +8,8 @@ import { Sidebar } from '@/components/Sidebar';
 import { useWebSocket } from '@/hooks/use-websocket';
 import dynamic from 'next/dynamic';
 import { toast } from '@/hooks/use-toast';
+import { ToastAction } from '@/components/ui/toast';
+import { ArrowLeft, BarChart2 } from 'lucide-react';
 
 const MapComponent = dynamic(() => import('@/components/MapComponent'), { ssr: false });
 
@@ -116,6 +118,11 @@ function CameraDetailContent() {
           title: "🚨 INCIDENT RECORDED",
           description: `Collision registered for ${cctv?.name || 'this camera'}. Incident ID: ${msg.incident_id.slice(-6).toUpperCase()}`,
           variant: "destructive",
+          action: (
+            <ToastAction altText="Engage View" onClick={() => window.location.href = `/incident/${msg.incident_id}`}>
+              ENGAGE VIEW
+            </ToastAction>
+          ),
         });
         break;
     }
@@ -173,7 +180,7 @@ function CameraDetailContent() {
               href="/"
               className="px-4 py-2 bg-[#222A3D] rounded border border-slate-700 flex items-center gap-2 hover:bg-slate-800 transition-colors"
             >
-              <div className="w-4 h-4 bg-[#DAE2FD]"></div>
+              <ArrowLeft className="w-4 h-4 text-[#DAE2FD]" />
               <span className="text-[#DAE2FD] text-sm">Back to Monitor</span>
             </Link>
           </div>
@@ -313,7 +320,7 @@ function CameraDetailContent() {
                   className="w-full"
                 >
                   <button className="w-full py-5 bg-[#89CEFF] rounded-lg border border-sky-300/20 flex justify-center items-center gap-3 hover:bg-sky-400 transition-colors shadow-lg">
-                    <div className="w-5 h-5 bg-[#003751] rounded-sm"></div>
+                    <BarChart2 className="w-6 h-6 text-[#003751]" />
                     <span className="text-[#003751] text-lg font-bold uppercase tracking-wide">
                       {accident?.incidentId
                         ? '📊 VIEW THIS INCIDENT'
