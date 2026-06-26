@@ -338,6 +338,13 @@ export function CameraProvider({ children }: { children: ReactNode }) {
           onIncidentSaved={(incidentId) => {
             console.log(`[CameraContext onIncidentSaved] Saved incident ID: ${incidentId} for Cam: ${activeCamera.name}`);
             setCctvs(prev => prev.map(c => c.id === activeCamera.id ? { ...c, hasActiveAlert: true, activeIncidentId: incidentId } : c));
+            // Auto-pause this camera once the incident is recorded so the
+            // looping clip can't keep re-firing alerts. Resume (▶) to re-arm.
+            setPausedCameras(prev => {
+              const next = new Set(prev);
+              next.add(activeCamera.id);
+              return next;
+            });
             fetchCCTVs();
             fetchPendingIncidents();
             playAlertSound(30000);
