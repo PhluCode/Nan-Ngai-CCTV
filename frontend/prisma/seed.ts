@@ -19,7 +19,6 @@ const VIDEO_FILES = [
 
 async function main() {
   const adminPassword = await bcrypt.hash('admin123', 10);
-  
   const admin = await prisma.user.upsert({
     where: { email: 'admin@example.com' },
     update: {
@@ -40,7 +39,6 @@ async function main() {
   await prisma.trafficAidPost.deleteMany();
   await prisma.incidentHistory.deleteMany();
   await prisma.notificationLog.deleteMany();
-  
   const LOCATIONS = [
     { name: 'Sukhumvit Rd', sector: 'Sector 7', roadSegment: 'Sukhumvit Soi 11', landmark: 'Nana BTS' },
     { name: 'Asok Intersection', sector: 'Sector 7', roadSegment: 'Asok Montri', landmark: 'Terminal 21' },
@@ -54,12 +52,11 @@ async function main() {
     { name: 'Pathum Wan', sector: 'Sector 1', roadSegment: 'Pathum Wan Intersection', landmark: 'MBK Center' },
   ];
 
-  // Seed 16 Cameras
+  // Seed 4 Cameras
   const cctvs = [];
-  for (let i = 0; i < 16; i++) {
+  for (let i = 0; i < 4; i++) {
     const loc = LOCATIONS[i % LOCATIONS.length];
-    const videoUrl = VIDEO_FILES[i % VIDEO_FILES.length];
-    
+    const videoUrl = VIDEO_FILES[i];
     const cctv = await prisma.cCTV.create({
       data: {
         name: `${loc.name} - Cam ${i + 1}`,
@@ -130,7 +127,7 @@ async function main() {
   console.log('Seeded TrafficAidPosts');
 
   // Seed some active incidents to trigger alerts
-  const alertIndices = [2, 7, 14];
+  const alertIndices: number[] = [];
   for (const idx of alertIndices) {
     if (cctvs[idx]) {
       const incident = await prisma.incident.create({
@@ -139,7 +136,7 @@ async function main() {
           verificationStatus: 'PENDING',
           severity: 'CRITICAL',
           confidenceScore: 0.95,
-          imageUrl: cctvs[idx].accidentVideoUrl, 
+          imageUrl: cctvs[idx].accidentVideoUrl,
           location: cctvs[idx].roadSegment,
           latitude: cctvs[idx].latitude,
           longitude: cctvs[idx].longitude,
@@ -159,7 +156,7 @@ async function main() {
   }
 
   // Seed some resolved incidents for logs/historical data
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 3; i++) {
     const incident = await prisma.incident.create({
       data: {
         cctvId: cctvs[i].id,

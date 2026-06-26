@@ -41,16 +41,10 @@ export function useWebSocket(
 		debug = false,
 	} = options;
 
-	// Hold the callbacks in refs so an unstable (inline) callback identity
-	// doesn't rebuild `connect` and tear down/reopen the socket on every render.
-	const onOpenRef = useRef(onOpen);
-	const onMessageRef = useRef(onMessage);
-	const onCloseRef = useRef(onClose);
-	const onErrorRef = useRef(onError);
-	onOpenRef.current = onOpen;
-	onMessageRef.current = onMessage;
-	onCloseRef.current = onClose;
-	onErrorRef.current = onError;
+	const handlersRef = useRef({ onOpen, onMessage, onClose, onError });
+	useEffect(() => {
+		handlersRef.current = { onOpen, onMessage, onClose, onError };
+	}, [onOpen, onMessage, onClose, onError]);
 
 	const log = useCallback(
 		(message: string, ...args: any[]) => {
@@ -104,25 +98,27 @@ export function useWebSocket(
 				log('Connection established');
 				setStatus('open');
 				reconnectAttemptsRef.current = 0;
-				onOpenRef.current?.(event);
+				handlersRef.current.onOpen?.(event);
 			};
 
 			socket.onmessage = event => {
 				try {
+					log('Message received', event.data);
+					console.log(event);
 					const parsedData = JSON.parse(event.data);
 					setData(parsedData);
-					onMessageRef.current?.(event);
+					handlersRef.current.onMessage?.(event);
 				} catch (err) {
 					error('Error parsing message:', err);
 					setData(event.data);
-					onMessageRef.current?.(event);
+					handlersRef.current.onMessage?.(event);
 				}
 			};
 
 			socket.onclose = event => {
 				warn(`Connection closed: code=${event.code}, reason=${event.reason}`);
 				setStatus('closed');
-				onCloseRef.current?.(event);
+				handlersRef.current.onClose?.(event);
 
 				// Don't reconnect if manually closed or max attempts reached
 				if (
@@ -147,7 +143,7 @@ export function useWebSocket(
 			socket.onerror = event => {
 				error('Connection error:', event);
 				setStatus('error');
-				onErrorRef.current?.(event);
+				handlersRef.current.onError?.(event);
 			};
 		} catch (err) {
 			error('Error creating WebSocket:', err);

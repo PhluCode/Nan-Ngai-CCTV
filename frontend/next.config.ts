@@ -1,10 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Don't fail production builds on lint errors (mostly pre-existing style
-  // issues). Linting still runs locally and can run in CI separately.
-  eslint: {
-    ignoreDuringBuilds: true,
+  // Allow Cloudinary-hosted images through next/image if it's ever used.
+  images: {
+    remotePatterns: [{ protocol: 'https', hostname: 'res.cloudinary.com' }],
   },
 };
 
