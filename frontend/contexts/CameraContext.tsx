@@ -306,26 +306,13 @@ export function CameraProvider({ children }: { children: ReactNode }) {
           cam={activeCamera} 
           setDisplayTime={setDisplayTime} 
           setWsStatus={setWsStatus}
-          onAccidentDetected={(data) => {
-            console.log(`[CameraContext onAccidentDetected] Setting active alert for Cam: ${activeCamera.name}`);
-            setCctvs(prev => prev.map(c => c.id === activeCamera.id ? { ...c, hasActiveAlert: true } : c));
-            
-            setPendingIncidents(prev => {
-              if (prev.some(inc => inc.id.startsWith('temp-') && inc.cctv?.name === activeCamera.name)) {
-                return prev;
-              }
-              const conf = data?.confidence ? data.confidence : 0.95;
-              const tempIncident: Incident = {
-                id: `temp-${Date.now()}`,
-                verificationStatus: 'PENDING',
-                incidentType: 'COLLISION',
-                confidenceScore: conf,
-                detectedAt: new Date().toISOString(),
-                cctv: { name: activeCamera.name, sector: activeCamera.sector || '', landmark: activeCamera.landmark || '' }
-              };
-              return [tempIncident, ...prev];
-            });
-
+          onAccidentDetected={() => {
+            // Only give instant feedback (toast + sound) here. The persistent
+            // alert state (red border, pending list, auto-pause) is driven by
+            // onIncidentSaved once the incident is actually in the DB — setting
+            // it optimistically here caused a flicker because the next DB fetch
+            // (before the incident was persisted) cleared it for a few seconds.
+            console.log(`[CameraContext onAccidentDetected] Accident detected on Cam: ${activeCamera.name}`);
             playAlertSound(30000);
             toast({
               title: "⚠️ ACCIDENT DETECTED",
