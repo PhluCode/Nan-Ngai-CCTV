@@ -219,26 +219,53 @@ def save_accident_image(frame, connection_id: str, frame_number: int) -> Optiona
         except Exception as e:
             logging.error(f"Failed to copy to public directory: {str(e)}")
 
-        # Prefer a public Cloudinary URL so the image is reachable from the
-        # deployed web app and LINE; fall back to the local path if upload
-        # fails or Cloudinary isn't configured.
-        if CLOUDINARY_ENABLED:
-            try:
-                result = cloudinary.uploader.upload(
-                    str(backend_path),
-                    folder="accidents",
-                    public_id=Path(filename).stem,
-                )
-                logging.info(f"Uploaded image to Cloudinary: {result['secure_url']}")
-                return result["secure_url"]
-            except Exception as e:
-                logging.error(f"Cloudinary upload failed: {str(e)}")
-
+        # Return the local path immediately — the Cloudinary upload is done in
+        # the background (see upload_image_and_update) so persisting the
+        # incident isn't blocked behind a network round-trip.
         return f"/accident_images/{filename}"
         
     except Exception as e:
         logging.error(f"Error saving accident image: {str(e)}")
         logging.error(traceback.format_exc())
+        return None
+
+
+async def upload_image_and_update(image_url: Optional[str], incident_id: str):
+    """Background task: upload the saved snapshot to Cloudinary and patch the
+    incident's imageUrl. Runs after the incident is already persisted so the
+    UI isn't blocked waiting on the upload."""
+    if not CLOUDINARY_ENABLED or not image_url or image_url.startswith("http"):
+        return
+
+    filename = Path(image_url).name
+    backend_path = ACCIDENT_IMAGES_DIR / filename
+    if not backend_path.exists():
+        return
+
+    try:
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            lambda: cloudinary.uploader.upload(
+                str(backend_path),
+                folder="accidents",
+                public_id=Path(filename).stem,
+            ),
+        )
+        secure_url = result["secure_url"]
+        logging.info(f"Uploaded image to Cloudinary: {secure_url}")
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                f"{FRONTEND_API_URL}/api/incidents",
+                json={"action": "updateImage", "id": incident_id, "imageUrl": secure_url},
+            )
+        if resp.status_code == 200:
+            logging.info(f"Updated incident {incident_id} with Cloudinary image")
+        else:
+            logging.error(f"Failed to update incident image: {resp.status_code} {resp.text}")
+    except Exception as e:
+        logging.error(f"Background image upload failed: {str(e)}")
         return None
 
 async def save_accident_video(frames: List[np.ndarray], fps: float, width: int, height: int, incident_id: str, websocket: WebSocket):
@@ -674,6 +701,11 @@ async def process_video_stream(websocket: WebSocket, video_url: str, connection_
                             "frames": list(frame_buffers[connection_id]),
                             "post_frames_left": post_accident_frames
                         }
+                        # Upload the snapshot to Cloudinary in the background and
+                        # patch the incident afterwards — keeps the alert instant.
+                        asyncio.create_task(
+                            upload_image_and_update(image_url, incident_id)
+                        )
 
             if in_accident_state:
                 accident_state_frames += 1
