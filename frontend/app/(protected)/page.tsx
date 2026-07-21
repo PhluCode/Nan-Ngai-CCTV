@@ -17,9 +17,9 @@ interface Incident {
 }
 
 function SyncedVideo({ cam }: { cam: CCTV }) {
-  const { getDisplayTime, pausedCameras } = useCamera();
+  const { getDisplayTime, pausedCameras, frozenVideos } = useCamera();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const paused = pausedCameras.has(cam.id);
+  const paused = pausedCameras.has(cam.id) || frozenVideos.has(cam.id);
 
   useEffect(() => {
     if (videoRef.current) {
@@ -65,8 +65,12 @@ export default function LiveMonitoringPage() {
     setActiveCameraId,
     pendingIncidents,
     pausedCameras,
-    togglePause
+    togglePause,
+    frozenVideos
   } = useCamera();
+
+  // A tile is stopped if manually paused or auto-frozen by a detection.
+  const isStopped = (id: string) => pausedCameras.has(id) || frozenVideos.has(id);
 
   const [showSwapFor, setShowSwapFor] = useState<number | null>(null);
   const getGridCols = () => {
@@ -251,16 +255,16 @@ export default function LiveMonitoringPage() {
                           <button
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); togglePause(cam.id); }}
                             className="absolute bottom-2 right-2 z-40 p-1.5 bg-black/70 rounded text-white hover:bg-black/90 transition-colors border border-slate-600"
-                            title={pausedCameras.has(cam.id) ? 'Resume video & detection' : 'Pause video & detection'}
+                            title={isStopped(cam.id) ? 'Resume video & detection' : 'Pause video & detection'}
                           >
-                            {pausedCameras.has(cam.id)
+                            {isStopped(cam.id)
                               ? <Play className="w-3.5 h-3.5" />
                               : <Pause className="w-3.5 h-3.5" />}
                           </button>
                         )}
 
                         {/* Paused indicator */}
-                        {pausedCameras.has(cam.id) && (
+                        {isStopped(cam.id) && (
                           <div className="absolute bottom-2 left-2 z-30 px-2 py-0.5 bg-black/70 rounded flex items-center gap-1">
                             <Pause className="w-3 h-3 text-[#FFB95F]" />
                             <span className="text-[#FFB95F] text-[10px] font-mono">PAUSED</span>

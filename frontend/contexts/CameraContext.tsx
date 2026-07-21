@@ -97,6 +97,8 @@ interface CameraContextType {
   wsStatus: string;
   pausedCameras: Set<string>;
   togglePause: (id: string) => void;
+  /** Videos frozen immediately on detection (before the incident is saved). */
+  frozenVideos: Set<string>;
 }
 
 const CameraContext = createContext<CameraContextType | undefined>(undefined);
@@ -209,6 +211,7 @@ export function CameraProvider({ children }: { children: ReactNode }) {
   const [pendingIncidents, setPendingIncidents] = useState<Incident[]>([]);
   const [wsStatus, setWsStatus] = useState<string>('idle');
   const [pausedCameras, setPausedCameras] = useState<Set<string>>(new Set());
+  const [frozenVideos, setFrozenVideos] = useState<Set<string>>(new Set());
   const displayTimesRef = useRef<Record<string, number>>({});
 
   // Pause/resume a camera: freezes its video and (if it's the active detection
@@ -218,6 +221,13 @@ export function CameraProvider({ children }: { children: ReactNode }) {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      return next;
+    });
+    // Resuming must also clear an auto-freeze from a detection.
+    setFrozenVideos(prev => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
       return next;
     });
   }, []);
@@ -297,7 +307,7 @@ export function CameraProvider({ children }: { children: ReactNode }) {
     <CameraContext.Provider value={{
       cctvs, loading, gridSize, setGridSize, selectedCameras, setSelectedCameras, getMaxCameras, getDisplayTime,
       activeCameraId, setActiveCameraId, isAiEnabled, setIsAiEnabled, pendingIncidents, fetchPendingIncidents, wsStatus,
-      pausedCameras, togglePause
+      pausedCameras, togglePause, frozenVideos
     }}>
       {/* Run background processing only for the active camera on the Live Monitoring page when AI is enabled and the camera isn't paused */}
       {isLivePage && activeCamera && isAiEnabled && !pausedCameras.has(activeCamera.id) && (
@@ -313,6 +323,16 @@ export function CameraProvider({ children }: { children: ReactNode }) {
             // it optimistically here caused a flicker because the next DB fetch
             // (before the incident was persisted) cleared it for a few seconds.
             console.log(`[CameraContext onAccidentDetected] Accident detected on Cam: ${activeCamera.name}`);
+            // Freeze the clip immediately. Detection keeps running until
+            // incident_saved arrives (so we still get the incident id, red
+            // border, pending alert and Engage View) — waiting for that event
+            // to also stop the video made the pause feel 3-5s late, since it
+            // sits behind the Cloudinary upload + incident POST.
+            setFrozenVideos(prev => {
+              const next = new Set(prev);
+              next.add(activeCamera.id);
+              return next;
+            });
             playAlertSound(30000);
             toast({
               title: "⚠️ ACCIDENT DETECTED",
