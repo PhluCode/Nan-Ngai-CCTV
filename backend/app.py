@@ -47,6 +47,10 @@ ACCIDENT_IMAGES_DIR.mkdir(exist_ok=True)
 ACCIDENT_VIDEOS_DIR = Path("accident_videos")
 ACCIDENT_VIDEOS_DIR.mkdir(exist_ok=True)
 
+# After a successful Cloudinary upload the local staging file is deleted so
+# disk doesn't grow unbounded. Set KEEP_LOCAL_MEDIA=1 to keep them (debugging).
+KEEP_LOCAL_MEDIA = os.getenv("KEEP_LOCAL_MEDIA", "").lower() in ("1", "true", "yes")
+
 app.mount("/accident_images", StaticFiles(directory=str(ACCIDENT_IMAGES_DIR)), name="accident_images")
 app.mount("/accident_videos", StaticFiles(directory=str(ACCIDENT_VIDEOS_DIR)), name="accident_videos")
 
@@ -253,6 +257,16 @@ async def upload_image_and_update(image_url: Optional[str], incident_id: str):
             logging.info(f"Updated incident {incident_id} with Cloudinary image")
         else:
             logging.error(f"Failed to update incident image: {resp.status_code} {resp.text}")
+
+        # Cloudinary now holds the canonical copy — drop the local staging file
+        # so disk doesn't grow unbounded (matters most on small cloud volumes).
+        if KEEP_LOCAL_MEDIA:
+            return
+        try:
+            backend_path.unlink()
+            logging.info(f"Removed local staging image: {backend_path.name}")
+        except Exception as e:
+            logging.warning(f"Could not remove local image {backend_path.name}: {e}")
     except Exception as e:
         logging.error(f"Background image upload failed: {str(e)}")
         return None
@@ -290,6 +304,15 @@ async def save_accident_video(frames: List[np.ndarray], fps: float, width: int, 
                 )
                 video_url = result["secure_url"]
                 logging.info(f"Uploaded video to Cloudinary: {video_url}")
+
+                # Cloudinary has the clip now — drop the local staging file.
+                # Clips are the big ones (~2MB each), so this matters.
+                if not KEEP_LOCAL_MEDIA:
+                    try:
+                        backend_path.unlink()
+                        logging.info(f"Removed local staging video: {filename}")
+                    except Exception as e:
+                        logging.warning(f"Could not remove local video {filename}: {e}")
             except Exception as e:
                 logging.error(f"Cloudinary video upload failed: {str(e)}")
 
