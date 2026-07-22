@@ -17,6 +17,72 @@ import { CCTV } from './types';
 import { CCTVViewDetails } from './CCTVviewDetails';
 import { EditCCTVDialog } from './CCTVEdit';
 
+type EditCCTVHandler = (
+	id: string,
+	data: {
+		name: string;
+		rtspUrl: string;
+		latitude: number;
+		longitude: number;
+		status: string;
+		accidentVideo?: File | null;
+		removeExistingVideo?: boolean;
+	}
+) => void | Promise<void>;
+
+// Extracted into a real component: the row actions need local state, and hooks
+// can't be called from a plain `cell` render callback (react-hooks/rules-of-hooks).
+function CCTVRowActions({
+	cctv,
+	onEditCCTV,
+}: {
+	cctv: CCTV;
+	onEditCCTV: EditCCTVHandler;
+}) {
+	const [viewDetailsOpen, setViewDetailsOpen] = React.useState(false);
+	const [editDialogOpen, setEditDialogOpen] = React.useState(false);
+
+	return (
+		<>
+			<DropdownMenu modal={false}>
+				<DropdownMenuTrigger asChild>
+					<Button variant='ghost' size='icon' className='h-8 w-8'>
+						<MoreHorizontal className='h-4 w-4' />
+						<span className='sr-only'>Open menu</span>
+					</Button>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent
+					align='end'
+					className='w-[160px] border-gray-700 bg-gray-800 text-white'>
+					<DropdownMenuLabel>Actions</DropdownMenuLabel>
+					<DropdownMenuSeparator className='bg-gray-700' />
+					<DropdownMenuItem
+						className='cursor-pointer hover:bg-gray-700'
+						onClick={() => setViewDetailsOpen(true)}>
+						View details
+					</DropdownMenuItem>
+					<DropdownMenuItem
+						className='cursor-pointer hover:bg-gray-700'
+						onClick={() => setEditDialogOpen(true)}>
+						Edit CCTV
+					</DropdownMenuItem>
+				</DropdownMenuContent>
+			</DropdownMenu>
+			<EditCCTVDialog
+				open={editDialogOpen}
+				onClose={() => setEditDialogOpen(false)}
+				cctv={cctv}
+				onEditCCTV={onEditCCTV}
+			/>
+			<CCTVViewDetails
+				open={viewDetailsOpen}
+				onClose={() => setViewDetailsOpen(false)}
+				cctv={cctv}
+			/>
+		</>
+	);
+}
+
 export const createColumns = (): ColumnDef<CCTV>[] => {
 	// Replace the existing handleEditCCTV function with this version
 	const handleEditCCTV = async (
@@ -284,51 +350,9 @@ export const createColumns = (): ColumnDef<CCTV>[] => {
 		},
 		{
 			id: 'actions',
-			cell: ({ row }) => {
-				const cctv = row.original;
-				const [viewDetailsOpen, setViewDetailsOpen] = React.useState(false);
-				const [editDialogOpen, setEditDialogOpen] = React.useState(false);
-
-				return (
-					<>
-						<DropdownMenu modal={false}>
-							<DropdownMenuTrigger asChild>
-								<Button variant='ghost' size='icon' className='h-8 w-8'>
-									<MoreHorizontal className='h-4 w-4' />
-									<span className='sr-only'>Open menu</span>
-								</Button>
-							</DropdownMenuTrigger>
-							<DropdownMenuContent
-								align='end'
-								className='w-[160px] border-gray-700 bg-gray-800 text-white'>
-								<DropdownMenuLabel>Actions</DropdownMenuLabel>
-								<DropdownMenuSeparator className='bg-gray-700' />
-								<DropdownMenuItem
-									className='cursor-pointer hover:bg-gray-700'
-									onClick={() => setViewDetailsOpen(true)}>
-									View details
-								</DropdownMenuItem>
-								<DropdownMenuItem
-									className='cursor-pointer hover:bg-gray-700'
-									onClick={() => setEditDialogOpen(true)}>
-									Edit CCTV
-								</DropdownMenuItem>
-							</DropdownMenuContent>
-						</DropdownMenu>
-						<EditCCTVDialog
-							open={editDialogOpen}
-							onClose={() => setEditDialogOpen(false)}
-							cctv={row.original}
-							onEditCCTV={handleEditCCTV}
-						/>
-						<CCTVViewDetails
-							open={viewDetailsOpen}
-							onClose={() => setViewDetailsOpen(false)}
-							cctv={cctv}
-						/>
-					</>
-				);
-			},
+			cell: ({ row }) => (
+				<CCTVRowActions cctv={row.original} onEditCCTV={handleEditCCTV} />
+			),
 		},
 	];
 };

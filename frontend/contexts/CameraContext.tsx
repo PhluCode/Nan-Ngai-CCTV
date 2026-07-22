@@ -35,7 +35,7 @@ let activeAlertTimeout: ReturnType<typeof setTimeout> | null = null;
 
 function playAlertSound(durationMs: number = 30000) {
   try {
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    const AudioContextClass = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AudioContextClass) return;
     const audioCtx = new AudioContextClass();
     
@@ -121,7 +121,7 @@ function BackgroundCameraProcessor({
 }: { 
   cam: CCTV, 
   setDisplayTime: (id: string, time: number) => void,
-  onAccidentDetected: (data?: any) => void,
+  onAccidentDetected: (data?: unknown) => void,
   onIncidentSaved: (incidentId: string) => void,
   setWsStatus: (status: string) => void
 }) {

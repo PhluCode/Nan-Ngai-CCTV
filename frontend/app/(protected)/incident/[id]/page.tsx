@@ -166,7 +166,7 @@ export default function IncidentDetailPage() {
                       <Camera className="w-3 h-3 text-white" />
                       <span className="text-white text-[10px] font-mono leading-none">LIVE FEED</span>
                     </div>
-                    <span className="text-[#DAE2FD] text-sm font-mono mt-1">REC {incident.id.slice(-6).toUpperCase()} // CAM_ID: {incident.cctv?.id.slice(-4) || 'UNK'}</span>
+                    <span className="text-[#DAE2FD] text-sm font-mono mt-1">REC {incident.id.slice(-6).toUpperCase()} {'//'} CAM_ID: {incident.cctv?.id.slice(-4) || 'UNK'}</span>
                   </div>
 
                   <div className="w-[210px] p-3 bg-[#0B1326]/80 rounded border border-orange-300/50 shadow-[0_0_15px_rgba(216,138,0,0.4)] backdrop-blur-md flex flex-col gap-1">

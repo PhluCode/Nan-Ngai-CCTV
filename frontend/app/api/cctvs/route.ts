@@ -40,7 +40,6 @@ export async function POST(request: NextRequest) {
 			hasAccidentVideo = true;
 		}
 
-		const currentDate = new Date().toISOString();
 		const cctv = await prisma.cCTV.create({
 			data: {
 				name,

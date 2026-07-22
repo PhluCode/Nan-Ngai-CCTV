@@ -94,7 +94,7 @@ export default function UsersPage() {
     const url = isEditing ? `/api/users/${currentUser.id}` : '/api/users';
     const method = isEditing ? 'PATCH' : 'POST';
     
-    const body: any = {
+    const body: { name?: string | null; email?: string; role?: string; password?: string } = {
       name: currentUser.name,
       email: currentUser.email,
       role: currentUser.role,

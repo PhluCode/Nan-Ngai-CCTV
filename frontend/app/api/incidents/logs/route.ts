@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/prisma';
+import { VerificationStatus } from '@prisma/client';
 
 export async function GET(request: Request) {
   try {
@@ -10,7 +11,7 @@ export async function GET(request: Request) {
     const skip = (page - 1) * limit;
 
     const where = {
-      verificationStatus: statusFilter === 'ALL' ? undefined : statusFilter as any
+      verificationStatus: statusFilter === 'ALL' ? undefined : statusFilter as VerificationStatus
     };
 
     const [incidents, total] = await Promise.all([

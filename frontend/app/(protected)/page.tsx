@@ -7,14 +7,6 @@ import { useCamera, CCTV } from '@/contexts/CameraContext';
 import { Video, Eye, Pause, Play } from 'lucide-react';
 import { LiveRTSPStream } from '@/components/LiveRTSPStream';
 
-interface Incident {
-  id: string;
-  verificationStatus: string;
-  incidentType: string;
-  confidenceScore: number;
-  detectedAt: string;
-  cctv?: { name: string; sector: string; landmark: string };
-}
 
 function SyncedVideo({ cam }: { cam: CCTV }) {
   const { getDisplayTime, pausedCameras, frozenVideos } = useCamera();

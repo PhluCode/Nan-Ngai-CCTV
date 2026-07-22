@@ -3,7 +3,7 @@ import { prisma } from '@/prisma';
 import bcrypt from 'bcryptjs';
 import { auth } from '@/auth';
 
-export async function GET(req: Request) {
+export async function GET() {
   const session = await auth();
   
   if (!session || session.user.role !== 'ADMIN') {
