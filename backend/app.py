@@ -38,17 +38,14 @@ if CLOUDINARY_ENABLED:
 app = FastAPI()
 pipeline = TrainingPipeline()
 
+# Local staging only: snapshots/clips are written here so Cloudinary has a file
+# path to upload from. Media is served from Cloudinary, so nothing is copied
+# into the frontend's public/ anymore (that also broke inside Docker).
 ACCIDENT_IMAGES_DIR = Path("accident_images")
 ACCIDENT_IMAGES_DIR.mkdir(exist_ok=True)
 
-PUBLIC_IMAGES_DIR = Path("../frontend/public/accident_images")
-PUBLIC_IMAGES_DIR.mkdir(exist_ok=True, parents=True)
-
 ACCIDENT_VIDEOS_DIR = Path("accident_videos")
 ACCIDENT_VIDEOS_DIR.mkdir(exist_ok=True)
-
-PUBLIC_VIDEOS_DIR = Path("../frontend/public/accident_videos")
-PUBLIC_VIDEOS_DIR.mkdir(exist_ok=True, parents=True)
 
 app.mount("/accident_images", StaticFiles(directory=str(ACCIDENT_IMAGES_DIR)), name="accident_images")
 app.mount("/accident_videos", StaticFiles(directory=str(ACCIDENT_VIDEOS_DIR)), name="accident_videos")
@@ -103,9 +100,9 @@ def format_location(latitude: float, longitude: float) -> str:
 async def health_check():
     """Health check endpoint"""
     return {
-        "status": "ok", 
-        "images_dir": str(ACCIDENT_IMAGES_DIR), 
-        "public_dir": str(PUBLIC_IMAGES_DIR)
+        "status": "ok",
+        "images_dir": str(ACCIDENT_IMAGES_DIR),
+        "videos_dir": str(ACCIDENT_VIDEOS_DIR),
     }
 
 @app.get("/images")
@@ -204,20 +201,12 @@ def save_accident_image(frame, connection_id: str, frame_number: int) -> Optiona
         filename = f"accident_{timestamp}_{unique_id}.jpg"
         
         backend_path = ACCIDENT_IMAGES_DIR / filename
-        public_path = PUBLIC_IMAGES_DIR / filename
-        
+
         cv2.imwrite(str(backend_path), frame, [cv2.IMWRITE_JPEG_QUALITY, 95])
-        
+
         if not backend_path.exists() or backend_path.stat().st_size == 0:
             logging.error(f"Failed to create valid image file at {backend_path}")
             return None
-        
-        try:
-            import shutil
-            shutil.copy2(str(backend_path), str(public_path))
-            logging.info(f"Copied image to public directory: {public_path}")
-        except Exception as e:
-            logging.error(f"Failed to copy to public directory: {str(e)}")
 
         # Return the local path immediately — the Cloudinary upload is done in
         # the background (see upload_image_and_update) so persisting the
@@ -276,21 +265,13 @@ async def save_accident_video(frames: List[np.ndarray], fps: float, width: int, 
         filename = f"accident_{timestamp}_{incident_id}.mp4"
         
         backend_path = ACCIDENT_VIDEOS_DIR / filename
-        public_path = PUBLIC_VIDEOS_DIR / filename
-        
+
         def _write_and_copy():
             fourcc = cv2.VideoWriter_fourcc(*'avc1')
             out = cv2.VideoWriter(str(backend_path), fourcc, fps, (width, height))
             for f in frames:
                 out.write(f)
             out.release()
-            
-            try:
-                import shutil
-                shutil.copy2(str(backend_path), str(public_path))
-                logging.info(f"Copied video to public directory: {public_path}")
-            except Exception as e:
-                logging.error(f"Failed to copy video to public directory: {str(e)}")
 
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, _write_and_copy)
