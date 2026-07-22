@@ -1,6 +1,5 @@
 'use client';
 import React, { useState, useEffect, useMemo } from 'react';
-import Link from 'next/link';
 import { TopHeader } from '@/components/TopHeader';
 import { Sidebar } from '@/components/Sidebar';
 import dynamic from 'next/dynamic';

@@ -1,3 +1,4 @@
+import { ArrowUpDown, Copy, Film, MoreHorizontal } from 'lucide-react';
 import * as React from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { Button } from '@/components/ui/button';
@@ -11,7 +12,6 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ArrowUpDown, Copy, Film, MoreHorizontal, Play } from 'lucide-react';
 import { CCTV } from './types';
 
 import { CCTVViewDetails } from './CCTVviewDetails';

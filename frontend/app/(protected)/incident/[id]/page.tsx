@@ -4,10 +4,10 @@ import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { TopHeader } from '@/components/TopHeader';
 import { Sidebar } from '@/components/Sidebar';
+import { AlertTriangle, CheckCircle, XCircle, Trash2, Camera, ShieldAlert } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
 const MapComponent = dynamic(() => import('@/components/MapComponent'), { ssr: false });
-import { AlertTriangle, MapPin, CheckCircle, XCircle, Trash2, Camera, ShieldAlert } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface CCTV {
@@ -89,7 +89,7 @@ export default function IncidentDetailPage() {
       } else {
         toast({ title: 'Update failed', variant: 'destructive' });
       }
-    } catch (err) {
+    } catch {
       toast({ title: 'Error processing verification', variant: 'destructive' });
     } finally {
       setIsSubmitting(false);

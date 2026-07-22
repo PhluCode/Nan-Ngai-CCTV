@@ -7,7 +7,6 @@ import {
 	initiateResponse,
 	resolveIncident,
 } from '../../../../services/incidentServices';
-import { VerificationStatus } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
